@@ -711,8 +711,8 @@ function renderPatternFigure(divId, fileData, freq, opts) {
   const layout = {
     paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
     showlegend: true,
-    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.12 },
-    margin: { l: 10, r: 10, t: 55, b: 70 },
+    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.06 },
+    margin: { l: 50, r: 50, t: 30, b: 45 },
     annotations: [],
   };
 
@@ -729,7 +729,7 @@ function renderPatternFigure(divId, fileData, freq, opts) {
     const domain = domains[i];
 
     layout[polarKey] = {
-      domain: { x: domain, y: [0.06, 0.92] },
+      domain: { x: domain, y: [0.06, 0.88] },
       bgcolor: "#ffffff",
       angularaxis: {
         rotation: 90, direction: "clockwise",
@@ -737,7 +737,7 @@ function renderPatternFigure(divId, fileData, freq, opts) {
         tickvals: Array.from({ length: 24 }, (_, k) => k * 15),
         ticktext: Array.from({ length: 24 }, (_, k) => String(k * 15)),
         tickfont: { size: 9 },
-        gridcolor: "rgba(0,0,0,0.2)", linecolor: "#333",
+        gridcolor: "rgba(0,0,0,0.2)", linecolor: "rgba(0,0,0,0.2)",
       },
       radialaxis: {
         range: [opts.ylimMin, opts.ylimMax],
@@ -745,14 +745,15 @@ function renderPatternFigure(divId, fileData, freq, opts) {
         tickvals: radialTicks,
         ticktext: radialTicks.map(v => v.toFixed(0)),
         tickfont: { size: 8 },
+        tickangle: 0,
         angle: 90,
-        gridcolor: "rgba(0,0,0,0.2)", linecolor: "#333",
+        gridcolor: "rgba(0,0,0,0.2)", linecolor: "rgba(0,0,0,0.2)",
       },
     };
 
     const cx = (domain[0] + domain[1]) / 2;
     layout.annotations.push({
-      text: `${freq} ${plane} Plane`, x: cx, y: 1.0, xref: "paper", yref: "paper",
+      text: `${freq} ${plane} Plane`, x: cx, y: 0.93, xref: "paper", yref: "paper",
       showarrow: false, font: { size: 13, color: "#1a1a1a" },
     });
 
@@ -763,17 +764,18 @@ function renderPatternFigure(divId, fileData, freq, opts) {
       allTraces.push(t);
     });
 
+    const cy = (0.06 + 0.88) / 2;
     const dw = domain[1] - domain[0];
     const arrowLen = dw * 0.06;
     const labelMap = { XY: ["Y", "X"], ZX: ["X", "Z"], ZY: ["Y", "Z"] };
     const [rightLabel, upLabel] = labelMap[plane];
     layout.annotations.push(
-      { x: cx + arrowLen, y: 0.49, ax: cx, ay: 0.49, xref: "paper", yref: "paper", axref: "paper", ayref: "paper",
+      { x: cx + arrowLen, y: cy, ax: cx, ay: cy, xref: "paper", yref: "paper", axref: "paper", ayref: "paper",
         showarrow: true, arrowhead: 2, arrowsize: 1, arrowwidth: 1.2, text: "" },
-      { text: rightLabel, x: cx + arrowLen + 0.01, y: 0.49, xref: "paper", yref: "paper", showarrow: false, font: { size: 11 }, xanchor: "left" },
-      { x: cx, y: 0.49 + arrowLen, ax: cx, ay: 0.49, xref: "paper", yref: "paper", axref: "paper", ayref: "paper",
+      { text: rightLabel, x: cx + arrowLen + 0.01, y: cy, xref: "paper", yref: "paper", showarrow: false, font: { size: 11 }, xanchor: "left" },
+      { x: cx, y: cy + arrowLen, ax: cx, ay: cy, xref: "paper", yref: "paper", axref: "paper", ayref: "paper",
         showarrow: true, arrowhead: 2, arrowsize: 1, arrowwidth: 1.2, text: "" },
-      { text: upLabel, x: cx, y: 0.49 + arrowLen + 0.02, xref: "paper", yref: "paper", showarrow: false, font: { size: 11 }, yanchor: "bottom" }
+      { text: upLabel, x: cx, y: cy + arrowLen + 0.02, xref: "paper", yref: "paper", showarrow: false, font: { size: 11 }, yanchor: "bottom" }
     );
   });
 
