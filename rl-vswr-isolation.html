@@ -336,9 +336,6 @@
       <summary>展開進階設定</summary>
       <div style="margin-top:10px;">
         <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;">
-          <input type="checkbox" id="legend-side"> 圖例放右側（預設在下方）
-        </label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;margin-top:8px;">
           <input type="checkbox" id="clean-non-band"> 清除非頻段範圍（未落在所選 Band / Manual Band 的資料會變成空值）
         </label>
       </div>
@@ -627,7 +624,7 @@ function buildBlocks(yArray) {
   return blocks.filter(b => b.length >= 2);
 }
 
-function renderChart(divId, data, title, yLabel, specs, bandRanges, xlim, yOpts, legendSide, unit) {
+function renderChart(divId, data, title, yLabel, specs, bandRanges, xlim, yOpts, unit) {
   const divisor = unit === "GHz" ? 1000 : 1;
   const toDisp = mhz => mhz / divisor;
 
@@ -670,8 +667,8 @@ function renderChart(divId, data, title, yLabel, specs, bandRanges, xlim, yOpts,
   const stepDisp = stepMhz / divisor;
   const xminDisp = Math.ceil(toDisp(xlim[0]) / stepDisp) * stepDisp;
   const legendRows = Math.max(1, Math.ceil(data.columns.length / 6));
-  const marginBottom = legendSide ? 130 : (90 + legendRows * 26);
-  const marginRight = legendSide ? 220 : 40;
+  const marginBottom = 65 + legendRows * 24;
+  const marginRight = 40;
 
   const layout = {
     title: { text: title, font: { size: 20, color: "#1a1a1a" } },
@@ -691,9 +688,7 @@ function renderChart(divId, data, title, yLabel, specs, bandRanges, xlim, yOpts,
       zeroline: false,
     },
     shapes,
-    legend: legendSide
-      ? { orientation: "v", x: 1.02, y: 1 }
-      : { orientation: "h", x: 0.5, xanchor: "center", y: -0.32 },
+    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.08 },
     margin: { l: 75, r: marginRight, t: 60, b: marginBottom },
     paper_bgcolor: "#ffffff",
     plot_bgcolor: "#ffffff",
@@ -837,7 +832,6 @@ document.getElementById("run-btn").addEventListener("click", async () => {
     const selectedCodes = Array.from(document.querySelectorAll("#band-checks input:checked")).map(el => parseInt(el.value, 10));
     const bandRanges = resolveBandRanges(selectedCodes, manualRanges);
 
-    const legendSide = document.getElementById("legend-side").checked;
     const cleanNonBand = document.getElementById("clean-non-band").checked;
 
     const rlYmin = parseOptionalFloat(document.getElementById("rl-ymin").value);
@@ -902,18 +896,18 @@ document.getElementById("run-btn").addEventListener("click", async () => {
     if (doIso) {
       addResultBlock("chart-iso", "Isolation", "iso.png");
       renderChart("chart-iso", working, "Isolation", "Isolation (dB)", specs, bandRanges, [fstart, fend],
-        { ymin: isoYmin, ymax: isoYmax, ystep: isoYstep }, legendSide, currentUnit);
+        { ymin: isoYmin, ymax: isoYmax, ystep: isoYstep }, currentUnit);
     } else {
       if (doS11) {
         addResultBlock("chart-rl", "Return Loss", "s11.png");
         renderChart("chart-rl", working, "Return Loss", "Return Loss (dB)", specs, bandRanges, [fstart, fend],
-          { ymin: rlYmin, ymax: rlYmax, ystep: rlYstep }, legendSide, currentUnit);
+          { ymin: rlYmin, ymax: rlYmax, ystep: rlYstep }, currentUnit);
       }
       if (doVswr) {
         const vswrData = calculateVswr(working);
         addResultBlock("chart-vswr", "VSWR", "vswr.png");
         renderChart("chart-vswr", vswrData, "VSWR", "VSWR", segVswr, bandRanges, [fstart, fend],
-          { ymin: vswrYmin != null ? vswrYmin : 1, ymax: vswrYmax, ystep: vswrYstep }, legendSide, currentUnit);
+          { ymin: vswrYmin != null ? vswrYmin : 1, ymax: vswrYmax, ystep: vswrYstep }, currentUnit);
       }
     }
 
