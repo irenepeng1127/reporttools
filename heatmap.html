@@ -99,11 +99,18 @@
   }
   select { width: 100%; }
   select option { color: #14171a; background: #ffffff; }
-  select[multiple] option:checked {
-    background: linear-gradient(0deg, #cfe2ff 0%, #cfe2ff 100%);
-    color: #14171a;
+
+  .checkbox-list {
+    display: flex; flex-direction: column; gap: 2px;
+    max-height: 160px; overflow-y: auto;
+    padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--input-border); background: var(--input-bg);
   }
-  select[multiple] { min-height: 120px; }
+  .checkbox-list label {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.88rem; padding: 3px 4px; border-radius: 6px; cursor: pointer;
+  }
+  .checkbox-list label:hover { background: rgba(120, 120, 120, 0.12); }
 
   .hint { font-size: 0.8rem; color: var(--muted); margin: 0 0 8px; }
 
@@ -177,9 +184,9 @@
     <div id="tab2-filters" hidden>
       <div class="card">
         <div class="field-grid cols-3">
-          <div class="field"><label>天線</label><select id="filter-ants" multiple></select></div>
-          <div class="field"><label>極化</label><select id="filter-pols" multiple></select></div>
-          <div class="field"><label>頻率 (MHz)</label><select id="filter-freqs" multiple></select></div>
+          <div class="field"><label>天線</label><div class="checkbox-list" id="filter-ants"></div></div>
+          <div class="field"><label>極化</label><div class="checkbox-list" id="filter-pols"></div></div>
+          <div class="field"><label>頻率 (MHz)</label><div class="checkbox-list" id="filter-freqs"></div></div>
         </div>
         <button class="run-btn" id="build-analysis-btn">產生 Analysis + Comcast Excel</button>
         <div id="analysis-msg-box"></div>
@@ -202,7 +209,7 @@
     <div id="tab3-controls" hidden>
       <div class="card">
         <div class="field-grid cols-3">
-          <div class="field"><label>天線</label><select id="hm-ants" multiple></select></div>
+          <div class="field"><label>天線</label><div class="checkbox-list" id="hm-ants"></div></div>
           <div class="field"><label>極化</label><select id="hm-pol"></select></div>
           <div class="field"><label>頻率 (MHz)</label><select id="hm-freq"></select></div>
         </div>
@@ -1016,8 +1023,14 @@ async function dbTablesFromBuffer(buffer) {
   return tables;
 }
 
-function fillMultiSelect(selectEl, options, formatFn) {
-  selectEl.innerHTML = options.map(o => `<option value="${o}" selected>${formatFn ? formatFn(o) : o}</option>`).join("");
+function fillMultiSelect(containerEl, options, formatFn) {
+  containerEl.innerHTML = options.map(o =>
+    `<label><input type="checkbox" value="${o}" checked>${formatFn ? formatFn(o) : o}</label>`
+  ).join("");
+}
+
+function getChecked(containerEl) {
+  return Array.from(containerEl.querySelectorAll("input:checked")).map(el => el.value);
 }
 
 document.getElementById("db-upload").addEventListener("change", async (e) => {
@@ -1048,9 +1061,9 @@ document.getElementById("build-analysis-btn").addEventListener("click", async ()
   document.getElementById("analysis-msg-box").innerHTML = "";
   document.getElementById("analysis-download-box").innerHTML = "";
   try {
-    const selAnts = Array.from(document.getElementById("filter-ants").selectedOptions).map(o => o.value);
-    const selPols = Array.from(document.getElementById("filter-pols").selectedOptions).map(o => o.value);
-    const selFreqs = Array.from(document.getElementById("filter-freqs").selectedOptions).map(o => parseFloat(o.value));
+    const selAnts = getChecked(document.getElementById("filter-ants"));
+    const selPols = getChecked(document.getElementById("filter-pols"));
+    const selFreqs = getChecked(document.getElementById("filter-freqs")).map(parseFloat);
     if (!selAnts.length || !selPols.length || !selFreqs.length) throw new Error("天線、極化、頻率都至少要選一項。");
 
     const { antennaTables, correlationTables } = prepareAnalysisData(dbTablesCache, selAnts, selPols, selFreqs);
@@ -1116,7 +1129,7 @@ document.getElementById("gen-heatmap-btn").addEventListener("click", async () =>
   resultsEl.innerHTML = "";
   document.getElementById("heatmap-msg-box").innerHTML = "";
   try {
-    const selAnts = Array.from(document.getElementById("hm-ants").selectedOptions).map(o => o.value);
+    const selAnts = getChecked(document.getElementById("hm-ants"));
     if (!selAnts.length) throw new Error("請至少選一支天線。");
     const pol = document.getElementById("hm-pol").value;
     const freq = document.getElementById("hm-freq").value;
