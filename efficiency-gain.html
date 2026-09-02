@@ -136,7 +136,7 @@
   }
 
   .panel-item { flex: 0 0 auto; }
-  .panel-item .plot-div { width: 560px; height: 300px; }
+  .panel-item .plot-div { width: 800px; height: 400px; }
   .panel-item .panel-dl { display: block; margin-top: 6px; }
 
   .dl-btn {
@@ -249,8 +249,8 @@ const BANDS = [
   ["CB(3300-5000MHz)", 3300, 5000],
 ];
 const COLORS = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"];
-const PANEL_WIDTH = 560;
-const PANEL_HEIGHT = 300;
+const PANEL_WIDTH = 800;
+const PANEL_HEIGHT = 400;
 
 // ---------- DOM builders ----------
 const bandChecksEl = document.getElementById("band-checks");
@@ -567,19 +567,19 @@ function renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, 
     const xrangeMhz = [s - 10, e + 10];
     const xrange = [xrangeMhz[0] / divisor, xrangeMhz[1] / divisor];
     const layout = {
-      title: { text: `${s / divisor}–${e / divisor} ${unit}`, font: { size: 13, color: "#1a1a1a" } },
+      title: { text: `${s / divisor}–${e / divisor} ${unit}`, font: { size: 15, color: "#1a1a1a" } },
       xaxis: {
-        title: { text: `Frequency (${unit})`, font: { size: 11 } }, range: xrange,
-        dtick: niceStep(xrange[1] - xrange[0], 51), tickangle: -90, tickfont: { size: 9 },
+        title: { text: `Frequency (${unit})`, font: { size: 12 } }, range: xrange,
+        dtick: niceStep(xrange[1] - xrange[0], 51), tickangle: -90, tickfont: { size: 10 },
         gridcolor: "rgba(0,0,0,0.15)", showline: true, linecolor: "#333", linewidth: 1, mirror: true, zeroline: false,
       },
       yaxis: {
-        title: { text: ytitle, font: { size: 12 } }, range: ylim, dtick: niceStep(ylim[1] - ylim[0], 11),
-        tickfont: { size: 10 },
+        title: { text: ytitle, font: { size: 13 } }, range: ylim, dtick: niceStep(ylim[1] - ylim[0], 11),
+        tickfont: { size: 11 },
         gridcolor: "rgba(0,0,0,0.15)", showline: true, linecolor: "#333", linewidth: 1, mirror: true, zeroline: false,
       },
       paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
-      legend: { orientation: "h", x: 0.5, xanchor: "center", y: legendY, font: { size: 9 } },
+      legend: { orientation: "h", x: 0.5, xanchor: "center", y: legendY, font: { size: 10 } },
       margin: { l: 50, r: 10, t: 30, b: marginBottom },
       width: PANEL_WIDTH, height: PANEL_HEIGHT,
     };
