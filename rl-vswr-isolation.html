@@ -241,9 +241,18 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="top-nav"><a href="./index.html">&larr; 回入口頁</a></div>
+  <div class="top-nav" style="display:flex; align-items:center; justify-content:space-between;">
+    <a href="./index.html">&larr; 回入口頁</a>
+    <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; color:var(--muted);">
+      頻率單位
+      <select id="unit-select" style="padding:6px 10px; border-radius:8px; border:1px solid var(--input-border); background:var(--input-bg); color:var(--fg);">
+        <option value="GHz" selected>GHz</option>
+        <option value="MHz">MHz</option>
+      </select>
+    </label>
+  </div>
   <h1>📡 RL / VSWR / Isolation</h1>
-  <div class="caption">所有頻率設定皆使用 MHz。上傳 CSV 後可預覽並下載圖表與 Combined CSV。（純前端運算，資料不會上傳到任何伺服器）</div>
+  <div class="caption">所有頻率設定皆使用同一單位（可用右上角切換 MHz / GHz）。上傳 CSV 後可預覽並下載圖表與 Combined CSV。（純前端運算，資料不會上傳到任何伺服器）</div>
 
   <div class="card">
     <h2>1. 模式</h2>
@@ -262,18 +271,20 @@
   </div>
 
   <div class="card">
-    <h2>3. 頻率範圍 (MHz)</h2>
+    <h2>3. 頻率範圍 (<span class="unit-tag">GHz</span>)</h2>
     <div class="field-grid">
-      <div class="field"><label>Start (MHz)</label><input type="number" id="fstart" value="5925" step="1"></div>
-      <div class="field"><label>End (MHz)</label><input type="number" id="fend" value="7125" step="1"></div>
+      <div class="field"><label>Start (<span class="unit-tag">GHz</span>)</label><input type="number" id="fstart" value="5.925" step="any"></div>
+      <div class="field"><label>End (<span class="unit-tag">GHz</span>)</label><input type="number" id="fend" value="7.125" step="any"></div>
     </div>
   </div>
 
   <div class="card">
-    <h2>4. SPEC 分段</h2>
-    <details>
-      <summary>自訂 SPEC（選填）</summary>
-      <div class="hint">最多 5 組，單位皆為 MHz / dB。</div>
+    <h2>4. 自訂SPEC線</h2>
+    <div class="hint">直接對預設頻段輸入 SPEC 值（dB），該頻段的起訖頻率會自動代入。</div>
+    <div id="spec-band-rows" class="field-grid cols-3"></div>
+    <details style="margin-top:14px;">
+      <summary>手動輸入（自訂頻率範圍，選填）</summary>
+      <div class="hint">最多 5 組，單位皆為 <span class="unit-tag">GHz</span> / dB。</div>
       <div id="spec-rows"></div>
     </details>
   </div>
@@ -283,7 +294,7 @@
     <div class="check-row" id="band-checks"></div>
     <details style="margin-top:12px;">
       <summary>手動頻段（選填）</summary>
-      <div class="hint">最多 5 組，單位皆為 MHz。</div>
+      <div class="hint">最多 5 組，單位皆為 <span class="unit-tag">GHz</span>。</div>
       <div id="manual-band-rows"></div>
     </details>
   </div>
@@ -360,6 +371,14 @@ BAND_ITEMS.forEach(([name, code]) => {
   bandChecksEl.appendChild(label);
 });
 
+const specBandRowsEl = document.getElementById("spec-band-rows");
+BAND_ITEMS.forEach(([name, code]) => {
+  const field = document.createElement("div");
+  field.className = "field";
+  field.innerHTML = `<label>${name} SPEC (dB)</label><input type="text" id="spec-band-${code}">`;
+  specBandRowsEl.appendChild(field);
+});
+
 function buildRows(containerId, rowClass, fields, count) {
   const container = document.getElementById(containerId);
   for (let i = 0; i < count; i++) {
@@ -368,20 +387,21 @@ function buildRows(containerId, rowClass, fields, count) {
     fields.forEach(f => {
       const field = document.createElement("div");
       field.className = "field";
-      field.innerHTML = `<label>${f.label} ${i+1}</label><input type="text" id="${f.id}${i}">`;
+      const labelHtml = f.unit ? `${f.label} <span class="unit-tag">GHz</span> ${i + 1}` : `${f.label} ${i + 1}`;
+      field.innerHTML = `<label>${labelHtml}</label><input type="text" id="${f.id}${i}">`;
       row.appendChild(field);
     });
     container.appendChild(row);
   }
 }
 buildRows("spec-rows", "spec-row", [
-  { id: "spec-start-", label: "Start (MHz)" },
-  { id: "spec-end-", label: "End (MHz)" },
+  { id: "spec-start-", label: "Start", unit: true },
+  { id: "spec-end-", label: "End", unit: true },
   { id: "spec-val-", label: "dB" },
 ], 5);
 buildRows("manual-band-rows", "band-row", [
-  { id: "manual-start-", label: "Start (MHz)" },
-  { id: "manual-end-", label: "End (MHz)" },
+  { id: "manual-start-", label: "Start", unit: true },
+  { id: "manual-end-", label: "End", unit: true },
 ], 5);
 
 // ---------- File parsing ----------
@@ -607,7 +627,10 @@ function buildBlocks(yArray) {
   return blocks.filter(b => b.length >= 2);
 }
 
-function renderChart(divId, data, title, yLabel, specs, bandRanges, xlim, yOpts, legendSide) {
+function renderChart(divId, data, title, yLabel, specs, bandRanges, xlim, yOpts, legendSide, unit) {
+  const divisor = unit === "GHz" ? 1000 : 1;
+  const toDisp = mhz => mhz / divisor;
+
   const traces = [];
   data.columns.forEach((col, ci) => {
     const color = COLORS[ci % COLORS.length];
@@ -615,7 +638,7 @@ function renderChart(divId, data, title, yLabel, specs, bandRanges, xlim, yOpts,
     const blocks = buildBlocks(y);
     blocks.forEach((b, bi) => {
       traces.push({
-        x: b.map(i => data.freq[i]),
+        x: b.map(i => toDisp(data.freq[i])),
         y: b.map(i => y[i]),
         type: "scatter",
         mode: "lines",
@@ -631,40 +654,50 @@ function renderChart(divId, data, title, yLabel, specs, bandRanges, xlim, yOpts,
   bandRanges.forEach(([s, e], i) => {
     shapes.push({
       type: "rect", xref: "x", yref: "paper",
-      x0: s, x1: e, y0: 0, y1: 1,
+      x0: toDisp(s), x1: toDisp(e), y0: 0, y1: 1,
       fillcolor: COLORS[i % COLORS.length], opacity: 0.2, line: { width: 0 }, layer: "below",
     });
   });
   specs.forEach(([s, e, v]) => {
     shapes.push({
       type: "line", xref: "x", yref: "y",
-      x0: s, x1: e, y0: v, y1: v,
+      x0: toDisp(s), x1: toDisp(e), y0: v, y1: v,
       line: { color: "red", dash: "dash", width: 2 },
     });
   });
 
-  const xmin = Math.ceil(xlim[0] / 100) * 100;
+  const stepMhz = 100;
+  const stepDisp = stepMhz / divisor;
+  const xminDisp = Math.ceil(toDisp(xlim[0]) / stepDisp) * stepDisp;
+  const legendRows = Math.max(1, Math.ceil(data.columns.length / 6));
+  const marginBottom = legendSide ? 130 : (90 + legendRows * 26);
+  const marginRight = legendSide ? 220 : 40;
+
   const layout = {
-    title: { text: title, font: { size: 20 } },
+    title: { text: title, font: { size: 20, color: "#1a1a1a" } },
     xaxis: {
-      title: "Frequency (MHz)",
-      range: xlim,
-      dtick: 100, tick0: xmin,
+      title: `Frequency (${unit})`,
+      range: [toDisp(xlim[0]), toDisp(xlim[1])],
+      dtick: stepDisp, tick0: xminDisp,
       tickangle: -90,
-      gridcolor: "rgba(128,128,128,0.3)",
+      gridcolor: "rgba(0,0,0,0.15)",
+      showline: true, linecolor: "#333", linewidth: 1, mirror: true,
+      zeroline: false,
     },
     yaxis: {
       title: yLabel,
-      gridcolor: "rgba(128,128,128,0.3)",
+      gridcolor: "rgba(0,0,0,0.15)",
+      showline: true, linecolor: "#333", linewidth: 1, mirror: true,
+      zeroline: false,
     },
     shapes,
     legend: legendSide
       ? { orientation: "v", x: 1.02, y: 1 }
-      : { orientation: "h", x: 0.5, xanchor: "center", y: -0.28 },
-    margin: { l: 70, r: legendSide ? 160 : 30, t: 60, b: legendSide ? 80 : 120 },
-    paper_bgcolor: "rgba(0,0,0,0)",
-    plot_bgcolor: "rgba(0,0,0,0)",
-    font: { color: getComputedStyle(document.body).color },
+      : { orientation: "h", x: 0.5, xanchor: "center", y: -0.32 },
+    margin: { l: 75, r: marginRight, t: 60, b: marginBottom },
+    paper_bgcolor: "#ffffff",
+    plot_bgcolor: "#ffffff",
+    font: { color: "#1a1a1a" },
     autosize: true,
   };
   if (yOpts.ymin != null || yOpts.ymax != null) {
@@ -679,17 +712,18 @@ function renderChart(divId, data, title, yLabel, specs, bandRanges, xlim, yOpts,
 }
 
 function downloadPng(divId, filename) {
-  Plotly.toImage(document.getElementById(divId), { format: "png", width: 1440, height: 900 }).then(url => {
+  Plotly.toImage(document.getElementById(divId), { format: "png", width: 1600, height: 1000, scale: 2 }).then(url => {
     const a = document.createElement("a");
     a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   });
 }
 
-function downloadCsv(data, filename) {
-  const lines = ["Freq," + data.columns.join(",")];
+function downloadCsv(data, filename, unit) {
+  const divisor = unit === "GHz" ? 1000 : 1;
+  const lines = [`Freq(${unit}),` + data.columns.join(",")];
   data.freq.forEach((f, i) => {
-    const row = [f.toFixed(6)];
+    const row = [(f / divisor).toFixed(6)];
     data.columns.forEach(c => {
       const v = data.table[c][i];
       row.push(Number.isFinite(v) ? v.toFixed(6) : "");
@@ -704,6 +738,41 @@ function downloadCsv(data, filename) {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+// ---------- Unit toggle (display unit only; all internal computation stays in MHz) ----------
+let currentUnit = "GHz";
+const FREQ_INPUT_IDS = ["fstart", "fend"];
+for (let i = 0; i < 5; i++) {
+  FREQ_INPUT_IDS.push("spec-start-" + i, "spec-end-" + i, "manual-start-" + i, "manual-end-" + i);
+}
+
+function toMHz(displayVal) {
+  return currentUnit === "GHz" ? displayVal * 1000 : displayVal;
+}
+
+function formatNum(v) {
+  if (!Number.isFinite(v)) return "";
+  return parseFloat(v.toFixed(6)).toString();
+}
+
+function refreshUnitLabels() {
+  document.querySelectorAll(".unit-tag").forEach(el => { el.textContent = currentUnit; });
+}
+
+document.getElementById("unit-select").addEventListener("change", (e) => {
+  const newUnit = e.target.value;
+  if (newUnit === currentUnit) return;
+  const factor = currentUnit === "GHz" && newUnit === "MHz" ? 1000
+    : (currentUnit === "MHz" && newUnit === "GHz" ? 1 / 1000 : 1);
+  FREQ_INPUT_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const v = parseFloat(el.value);
+    if (Number.isFinite(v)) el.value = formatNum(v * factor);
+  });
+  currentUnit = newUnit;
+  refreshUnitLabels();
+});
 
 // ---------- UI wiring ----------
 const fileInput = document.getElementById("file-input");
@@ -731,8 +800,8 @@ document.getElementById("run-btn").addEventListener("click", async () => {
     const files = Array.from(fileInput.files);
     if (!files.length) throw new Error("請先上傳 CSV。");
 
-    const fstart = parseFloat(document.getElementById("fstart").value);
-    const fend = parseFloat(document.getElementById("fend").value);
+    const fstart = toMHz(parseFloat(document.getElementById("fstart").value));
+    const fend = toMHz(parseFloat(document.getElementById("fend").value));
     if (!(fstart < fend)) throw new Error("Start 必須小於 End。");
 
     const mode = getMode();
@@ -741,18 +810,25 @@ document.getElementById("run-btn").addEventListener("click", async () => {
     const doIso = mode === "iso";
 
     const specs = [];
+    BAND_ITEMS.forEach(([name, code]) => {
+      const v = document.getElementById("spec-band-" + code).value.trim();
+      if (v) {
+        const [s, e] = BAND_MAPPING[code];
+        specs.push([s, e, parseFloat(v)]);
+      }
+    });
     for (let i = 0; i < 5; i++) {
       const s = document.getElementById("spec-start-" + i).value.trim();
       const e = document.getElementById("spec-end-" + i).value.trim();
       const v = document.getElementById("spec-val-" + i).value.trim();
-      if (s && e && v) specs.push([parseFloat(s), parseFloat(e), parseFloat(v)]);
+      if (s && e && v) specs.push([toMHz(parseFloat(s)), toMHz(parseFloat(e)), parseFloat(v)]);
     }
 
     const manualRanges = [];
     for (let i = 0; i < 5; i++) {
       const s = document.getElementById("manual-start-" + i).value.trim();
       const e = document.getElementById("manual-end-" + i).value.trim();
-      if (s && e) manualRanges.push([parseFloat(s), parseFloat(e)]);
+      if (s && e) manualRanges.push([toMHz(parseFloat(s)), toMHz(parseFloat(e))]);
     }
 
     const selectedCodes = Array.from(document.querySelectorAll("#band-checks input:checked")).map(el => parseInt(el.value, 10));
@@ -823,18 +899,18 @@ document.getElementById("run-btn").addEventListener("click", async () => {
     if (doIso) {
       addResultBlock("chart-iso", "Isolation", "iso.png");
       renderChart("chart-iso", working, "Isolation", "Isolation (dB)", specs, bandRanges, [fstart, fend],
-        { ymin: isoYmin, ymax: isoYmax, ystep: isoYstep }, legendSide);
+        { ymin: isoYmin, ymax: isoYmax, ystep: isoYstep }, legendSide, currentUnit);
     } else {
       if (doS11) {
         addResultBlock("chart-rl", "Return Loss", "s11.png");
         renderChart("chart-rl", working, "Return Loss", "Return Loss (dB)", specs, bandRanges, [fstart, fend],
-          { ymin: rlYmin, ymax: rlYmax, ystep: rlYstep }, legendSide);
+          { ymin: rlYmin, ymax: rlYmax, ystep: rlYstep }, legendSide, currentUnit);
       }
       if (doVswr) {
         const vswrData = calculateVswr(working);
         addResultBlock("chart-vswr", "VSWR", "vswr.png");
         renderChart("chart-vswr", vswrData, "VSWR", "VSWR", segVswr, bandRanges, [fstart, fend],
-          { ymin: vswrYmin != null ? vswrYmin : 1, ymax: vswrYmax, ystep: vswrYstep }, legendSide);
+          { ymin: vswrYmin != null ? vswrYmin : 1, ymax: vswrYmax, ystep: vswrYstep }, legendSide, currentUnit);
       }
     }
 
@@ -842,7 +918,7 @@ document.getElementById("run-btn").addEventListener("click", async () => {
     csvCard.className = "card result-card";
     csvCard.innerHTML = `<h2>Combined CSV</h2><button class="dl-btn" id="dl-csv">下載 combined.csv</button>`;
     resultsEl.appendChild(csvCard);
-    document.getElementById("dl-csv").addEventListener("click", () => downloadCsv(exportData, "combined.csv"));
+    document.getElementById("dl-csv").addEventListener("click", () => downloadCsv(exportData, "combined.csv", currentUnit));
 
     showMsg("分析完成。", "success");
   } catch (err) {
