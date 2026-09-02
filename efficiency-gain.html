@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Efficiency & Peak Gain</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+  :root {
+    color-scheme: dark light;
+    --bg: #0e1117;
+    --fg: #fafafa;
+    --muted: #8b949e;
+    --card-bg: rgba(120, 120, 120, 0.07);
+    --card-border: rgba(120, 120, 120, 0.25);
+    --input-bg: rgba(120, 120, 120, 0.08);
+    --input-border: rgba(120, 120, 120, 0.35);
+    --accent: #4f8cff;
+    --accent-fg: #ffffff;
+    --error-bg: rgba(220, 60, 60, 0.12);
+    --error-fg: #ff8080;
+    --success-bg: rgba(60, 180, 100, 0.12);
+    --success-fg: #6fdc9a;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #ffffff;
+      --fg: #14171a;
+      --muted: #6b7280;
+      --card-bg: rgba(120, 120, 120, 0.05);
+      --card-border: rgba(120, 120, 120, 0.2);
+      --input-bg: rgba(120, 120, 120, 0.06);
+      --input-border: rgba(120, 120, 120, 0.3);
+      --error-bg: rgba(220, 60, 60, 0.08);
+      --error-fg: #c92a2a;
+      --success-bg: rgba(60, 180, 100, 0.08);
+      --success-fg: #2b8a3e;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.6rem 4rem;
+  }
+
+  .top-nav { margin-bottom: 1.2rem; }
+  .top-nav a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  .top-nav a:hover { color: var(--fg); }
+
+  h1 { font-size: 1.9rem; font-weight: 800; margin: 0 0 0.2rem; }
+
+  .caption { color: var(--muted); font-size: 0.92rem; margin-bottom: 1.6rem; }
+
+  .card {
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    background: var(--card-bg);
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+
+  .card h2 { font-size: 1.05rem; font-weight: 700; margin: 0 0 0.9rem; }
+
+  .radio-row, .check-row { display: flex; flex-wrap: wrap; gap: 14px; }
+
+  .radio-row label, .check-row label {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.92rem; cursor: pointer;
+  }
+
+  input[type="file"] {
+    width: 100%; padding: 10px; border-radius: 10px;
+    border: 1px dashed var(--input-border);
+    background: var(--input-bg); color: var(--fg);
+  }
+
+  .file-list { margin-top: 8px; font-size: 0.85rem; color: var(--muted); }
+
+  .field-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .field-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 0.8rem; color: var(--muted); }
+
+  input[type="text"], input[type="number"] {
+    padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--input-border);
+    background: var(--input-bg); color: var(--fg); font-size: 0.92rem;
+  }
+
+  details {
+    border: 1px solid var(--card-border);
+    border-radius: 10px; padding: 10px 14px; margin-top: 4px;
+  }
+
+  details summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+
+  .band-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+
+  .y-block { margin-top: 10px; }
+  .y-block h3 { font-size: 0.88rem; margin: 0 0 6px; }
+
+  .hint { font-size: 0.8rem; color: var(--muted); margin: 0 0 8px; }
+
+  .run-btn {
+    display: block; width: 100%; padding: 12px; border-radius: 10px;
+    border: none; background: var(--accent); color: var(--accent-fg);
+    font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 4px;
+  }
+  .run-btn:hover { filter: brightness(1.08); }
+
+  .msg { padding: 10px 14px; border-radius: 10px; font-size: 0.9rem; margin-top: 12px; }
+  .msg.error { background: var(--error-bg); color: var(--error-fg); }
+  .msg.success { background: var(--success-bg); color: var(--success-fg); }
+
+  .result-card { margin-top: 22px; }
+  .result-card h2 { font-size: 1.15rem; }
+
+  .plot-div { width: 100%; height: 500px; }
+
+  .dl-btn {
+    display: inline-block; margin-top: 10px; padding: 8px 14px; border-radius: 8px;
+    border: 1px solid var(--input-border); background: var(--input-bg); color: var(--fg);
+    font-size: 0.85rem; font-weight: 600; cursor: pointer; text-decoration: none; margin-right: 8px;
+  }
+  .dl-btn:hover { border-color: var(--accent); }
+
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-nav"><a href="./index.html">&larr; 回入口頁</a></div>
+  <h1>📈 Efficiency & Peak Gain</h1>
+  <div class="caption">所有頻率單位統一為 MHz。上傳 CSV 後可預覽並下載圖表與資料。（純前端運算，資料不會上傳到任何伺服器）</div>
+
+  <div class="card">
+    <h2>1. 上傳資料</h2>
+    <div class="radio-row" id="source-row" style="margin-bottom:12px;">
+      <label><input type="radio" name="source" value="original" checked> 原始 ETS CSV</label>
+      <label><input type="radio" name="source" value="combined"> Combined CSV</label>
+    </div>
+    <input type="file" id="file-input" accept=".csv" multiple />
+    <div class="file-list" id="file-list"></div>
+  </div>
+
+  <div class="card">
+    <h2>2. 頻段 (MHz)</h2>
+    <div class="check-row" id="band-checks"></div>
+    <details style="margin-top:12px;">
+      <summary>手動頻段（選填）</summary>
+      <div class="hint">最多 5 組，單位 MHz。</div>
+      <div id="manual-band-rows"></div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>3. 顯示內容</h2>
+    <div class="check-row">
+      <label><input type="checkbox" id="show-eff" checked> Efficiency</label>
+      <label><input type="checkbox" id="show-gain" checked> Peak Gain</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>4. 自訂 Y 軸 Scale（選填）</h2>
+    <div class="y-block" id="y-eff">
+      <h3>Efficiency (%)</h3>
+      <div class="field-grid">
+        <div class="field"><label>Ymin</label><input type="number" id="eff-ymin" value="0"></div>
+        <div class="field"><label>Ymax</label><input type="number" id="eff-ymax" value="100"></div>
+      </div>
+    </div>
+    <div class="y-block" id="y-gain">
+      <h3>Peak Gain (dBi)</h3>
+      <div class="field-grid">
+        <div class="field"><label>Ymin</label><input type="number" id="gain-ymin" value="-3"></div>
+        <div class="field"><label>Ymax</label><input type="number" id="gain-ymax" value="10"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>5. 進階設定</h2>
+    <details>
+      <summary>展開進階設定</summary>
+      <div class="field" style="max-width:260px;margin-top:10px;">
+        <label>線段最大頻率間隔 (MHz)</label>
+        <input type="number" id="max-gap" value="100" min="0.1" step="10">
+      </div>
+    </details>
+  </div>
+
+  <button class="run-btn" id="run-btn">產生圖表</button>
+  <div id="msg-box"></div>
+
+  <div id="results"></div>
+</div>
+
+<script>
+const BANDS = [
+  ["LB (617–960)", 617, 960],
+  ["MB (1710–2700)", 1710, 2700],
+  ["CB (3300–5000)", 3300, 5000],
+  ["2G Wi-Fi (2400–2500)", 2400, 2500],
+  ["5G Wi-Fi (5150–5850)", 5150, 5850],
+  ["6G Wi-Fi (5925–7125)", 5925, 7125],
+];
+const COLORS = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"];
+
+// ---------- DOM builders ----------
+const bandChecksEl = document.getElementById("band-checks");
+BANDS.forEach(([name, s, e], i) => {
+  const label = document.createElement("label");
+  label.innerHTML = `<input type="checkbox" value="${i}"> ${name}`;
+  bandChecksEl.appendChild(label);
+});
+
+const manualRowsEl = document.getElementById("manual-band-rows");
+for (let i = 0; i < 5; i++) {
+  const row = document.createElement("div");
+  row.className = "band-row";
+  row.innerHTML = `
+    <div class="field"><label>Start ${i + 1}</label><input type="text" id="manual-start-${i}"></div>
+    <div class="field"><label>End ${i + 1}</label><input type="text" id="manual-end-${i}"></div>
+  `;
+  manualRowsEl.appendChild(row);
+}
+
+document.getElementById("show-eff").addEventListener("change", (e) => {
+  document.getElementById("y-eff").hidden = !e.target.checked;
+});
+document.getElementById("show-gain").addEventListener("change", (e) => {
+  document.getElementById("y-gain").hidden = !e.target.checked;
+});
+
+// ---------- File parsing ----------
+function stripExtLabel(name) {
+  const base = String(name).split(/[\\/]/).pop();
+  const idx = base.lastIndexOf(".");
+  let root = idx > 0 ? base.slice(0, idx) : base;
+  root = root.replace(/[\s_-]*TableData\s*$/i, "");
+  return root;
+}
+
+function readFileText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => {
+      const buf = reader.result;
+      let text = new TextDecoder("utf-8", { fatal: false }).decode(buf);
+      if (text.includes("�")) {
+        try { text = new TextDecoder("iso-8859-1").decode(buf); } catch (e) {}
+      }
+      resolve(text);
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = "", inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; } else inQuotes = false;
+      } else cur += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ",") { result.push(cur); cur = ""; }
+      else cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+function parseCSVFromLine0(text) {
+  const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
+  const table = lines.map(parseCSVLine);
+  const headers = table[0].map(h => h.trim());
+  return { headers, rows: table.slice(1) };
+}
+
+function rowVals(lines, i) {
+  const cols = lines[i].split(",");
+  const vals = [];
+  for (let k = 2; k < cols.length; k++) {
+    const v = parseFloat(cols[k]);
+    if (Number.isFinite(v)) vals.push(v);
+  }
+  return vals;
+}
+
+function parseETSFile(text, filename) {
+  const lines = text.split(/\r\n|\n|\r/);
+  const idxs = { frequency: null, efficiency: null, gain: null };
+  for (let i = 0; i < lines.length; i++) {
+    const cols = lines[i].split(",");
+    if (cols.length > 1) {
+      const cell = cols[1].trim().toLowerCase();
+      if (cell.includes("frequency") && idxs.frequency === null) idxs.frequency = i;
+      else if (cell.includes("efficiency (%)") && idxs.efficiency === null) idxs.efficiency = i;
+      else if (cell.includes("gain") && idxs.gain === null) idxs.gain = i;
+    }
+    if (idxs.frequency !== null && idxs.efficiency !== null && idxs.gain !== null) break;
+  }
+  const missing = Object.keys(idxs).filter(k => idxs[k] === null);
+  if (missing.length) throw new Error(`${filename} 找不到 ${missing.join(", ")}`);
+
+  const freq = rowVals(lines, idxs.frequency);
+  const eff = rowVals(lines, idxs.efficiency);
+  const gain = rowVals(lines, idxs.gain);
+  const n = Math.min(freq.length, eff.length, gain.length);
+  const f = freq.slice(0, n);
+  return {
+    label: stripExtLabel(filename),
+    effFreq: f, effVal: eff.slice(0, n),
+    gainFreq: f, gainVal: gain.slice(0, n),
+  };
+}
+
+function parseCombinedFile(text, filename) {
+  const { headers, rows } = parseCSVFromLine0(text);
+  const freqIdx = headers.indexOf("Frequency (MHz)");
+  if (freqIdx === -1) throw new Error(`${filename} 找不到 Frequency (MHz)`);
+
+  const results = [];
+  headers.forEach((h, ci) => {
+    if (!h.startsWith("Eff_")) return;
+    const label = stripExtLabel(h.slice(4));
+    const gainIdx = headers.findIndex(h2 => h2.startsWith("Gain_") && stripExtLabel(h2.slice(5)) === label);
+    if (gainIdx === -1) return;
+
+    const effFreq = [], effVal = [], gainFreq = [], gainVal = [];
+    rows.forEach(r => {
+      const f = parseFloat(r[freqIdx]);
+      const ev = parseFloat(r[ci]);
+      const gv = parseFloat(r[gainIdx]);
+      if (Number.isFinite(f) && Number.isFinite(ev)) { effFreq.push(f); effVal.push(ev); }
+      if (Number.isFinite(f) && Number.isFinite(gv)) { gainFreq.push(f); gainVal.push(gv); }
+    });
+    results.push({ label, effFreq, effVal, gainFreq, gainVal });
+  });
+
+  if (!results.length) throw new Error("Combined CSV 找不到可配對的 Eff_ / Gain_ 欄位。");
+  return results;
+}
+
+// ---------- Tables ----------
+function mergedTable(seriesList, key) {
+  const freqSet = new Map();
+  seriesList.forEach(s => s[key + "Freq"].forEach(f => freqSet.set(f, true)));
+  const freq = Array.from(freqSet.keys()).sort((a, b) => a - b);
+  const table = {};
+  seriesList.forEach(s => {
+    const m = new Map();
+    s[key + "Freq"].forEach((f, i) => { if (!m.has(f)) m.set(f, s[key + "Val"][i]); });
+    table[s.label] = freq.map(f => (m.has(f) ? m.get(f) : NaN));
+  });
+  return { freq, labels: seriesList.map(s => s.label), table };
+}
+
+function combinedTable(seriesList) {
+  const freqSet = new Map();
+  seriesList.forEach(s => {
+    s.effFreq.forEach(f => freqSet.set(f, true));
+    s.gainFreq.forEach(f => freqSet.set(f, true));
+  });
+  const freq = Array.from(freqSet.keys()).sort((a, b) => a - b);
+  const columns = [];
+  const table = {};
+  seriesList.forEach(s => {
+    const effM = new Map();
+    s.effFreq.forEach((f, i) => { if (!effM.has(f)) effM.set(f, s.effVal[i]); });
+    const gainM = new Map();
+    s.gainFreq.forEach((f, i) => { if (!gainM.has(f)) gainM.set(f, s.gainVal[i]); });
+    const effCol = "Eff_" + s.label, gainCol = "Gain_" + s.label;
+    columns.push(effCol, gainCol);
+    table[effCol] = freq.map(f => (effM.has(f) ? effM.get(f) : NaN));
+    table[gainCol] = freq.map(f => (gainM.has(f) ? gainM.get(f) : NaN));
+  });
+  return { freq, columns, table };
+}
+
+// ---------- CSV download ----------
+function downloadCsv(freq, columns, table, filename, decimals) {
+  const lines = [["Frequency (MHz)", ...columns].join(",")];
+  freq.forEach((f, i) => {
+    const fmt = v => (decimals != null ? v.toFixed(decimals) : String(v));
+    const row = [fmt(f)];
+    columns.forEach(c => {
+      const v = table[c][i];
+      row.push(Number.isFinite(v) ? fmt(v) : "");
+    });
+    lines.push(row.join(","));
+  });
+  const csv = "﻿" + lines.join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ---------- Plotting ----------
+function niceStep(range, targetBins) {
+  if (!(range > 0)) return 1;
+  const rough = range / targetBins;
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / mag;
+  let nice;
+  if (norm <= 1) nice = 1;
+  else if (norm <= 2) nice = 2;
+  else if (norm <= 5) nice = 5;
+  else nice = 10;
+  return nice * mag;
+}
+
+function renderMultiPanel(divId, seriesList, key, segments, ylim, ytitle, maxGap) {
+  const traces = [];
+  const n = segments.length;
+  const gap = n > 1 ? 0.035 : 0;
+  const w = (1 - gap * (n - 1)) / n;
+  const legendedLabels = new Set();
+
+  const layout = {
+    paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
+    showlegend: true,
+    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.22 },
+    margin: { l: 55, r: 15, t: 45, b: 110 },
+    annotations: [],
+  };
+
+  segments.forEach((seg, i) => {
+    const [s, e] = seg;
+    const domainStart = i * (w + gap);
+    const domainEnd = domainStart + w;
+    const axisSuffix = i === 0 ? "" : String(i + 1);
+    const xk = "xaxis" + axisSuffix, yk = "yaxis" + axisSuffix;
+    const xName = "x" + axisSuffix, yName = "y" + axisSuffix;
+    const xrange = [s - 10, e + 10];
+
+    layout[xk] = {
+      domain: [domainStart, domainEnd], range: xrange,
+      dtick: niceStep(xrange[1] - xrange[0], 51), tickangle: -90, tickfont: { size: 9 },
+      title: { text: "Frequency (MHz)", font: { size: 11 } },
+      gridcolor: "rgba(0,0,0,0.15)", showline: true, linecolor: "#333", linewidth: 1, mirror: true, zeroline: false,
+    };
+    layout[yk] = {
+      domain: [0, 1], range: ylim, dtick: niceStep(ylim[1] - ylim[0], 11),
+      tickfont: { size: 10 },
+      gridcolor: "rgba(0,0,0,0.15)", showline: true, linecolor: "#333", linewidth: 1, mirror: true, zeroline: false,
+    };
+    if (i === 0) layout[yk].title = { text: ytitle, font: { size: 13 } };
+
+    layout.annotations.push({
+      text: `${s}–${e} MHz`, x: (domainStart + domainEnd) / 2, xref: "paper",
+      y: 1.08, yref: "paper", showarrow: false, font: { size: 13, color: "#1a1a1a" },
+    });
+
+    seriesList.forEach((series, si) => {
+      const color = COLORS[si % COLORS.length];
+      const freqArr = series[key + "Freq"], valArr = series[key + "Val"];
+      const pts = freqArr
+        .map((f, idx) => ({ f, v: valArr[idx] }))
+        .filter(p => Number.isFinite(p.f) && Number.isFinite(p.v) && p.f >= s && p.f <= e)
+        .sort((a, b) => a.f - b.f);
+      if (!pts.length) return;
+      const xs = pts.map(p => p.f), ys = pts.map(p => p.v);
+      const showlegend = !legendedLabels.has(series.label);
+      legendedLabels.add(series.label);
+
+      traces.push({
+        x: xs, y: ys, mode: "markers", type: "scatter",
+        marker: { size: 5, color }, name: series.label, legendgroup: series.label,
+        showlegend, xaxis: xName, yaxis: yName,
+      });
+
+      let start = 0;
+      for (let k = 1; k <= xs.length; k++) {
+        if (k === xs.length || xs[k] - xs[k - 1] > maxGap) {
+          if (k - start > 1) {
+            traces.push({
+              x: xs.slice(start, k), y: ys.slice(start, k), mode: "lines", type: "scatter",
+              line: { color, width: 1.5 }, legendgroup: series.label, showlegend: false,
+              xaxis: xName, yaxis: yName,
+            });
+          }
+          start = k;
+        }
+      }
+    });
+  });
+
+  Plotly.newPlot(divId, traces, layout, { responsive: true, displaylogo: false });
+}
+
+function downloadPng(divId, filename) {
+  const el = document.getElementById(divId);
+  const w = Math.round(el.offsetWidth) || 1200;
+  const h = Math.round(el.offsetHeight) || 500;
+  Plotly.toImage(el, { format: "png", width: w, height: h, scale: 3 }).then(url => {
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+}
+
+// ---------- UI wiring ----------
+const fileInput = document.getElementById("file-input");
+const fileListEl = document.getElementById("file-list");
+fileInput.addEventListener("change", () => {
+  const names = Array.from(fileInput.files).map(f => f.name);
+  fileListEl.textContent = names.length ? "已選擇：" + names.join("、") : "";
+});
+
+function showMsg(text, type) {
+  document.getElementById("msg-box").innerHTML = `<div class="msg ${type}">${text}</div>`;
+}
+
+document.getElementById("run-btn").addEventListener("click", async () => {
+  const resultsEl = document.getElementById("results");
+  resultsEl.innerHTML = "";
+  document.getElementById("msg-box").innerHTML = "";
+
+  try {
+    const files = Array.from(fileInput.files);
+    if (!files.length) throw new Error("請先上傳 CSV。");
+
+    const showEff = document.getElementById("show-eff").checked;
+    const showGain = document.getElementById("show-gain").checked;
+    if (!showEff && !showGain) throw new Error("Efficiency / Peak Gain 至少選一項。");
+
+    const selectedCodes = Array.from(document.querySelectorAll("#band-checks input:checked")).map(el => parseInt(el.value, 10));
+    let segments = selectedCodes.map(i => [BANDS[i][1], BANDS[i][2]]);
+    for (let i = 0; i < 5; i++) {
+      const s = document.getElementById("manual-start-" + i).value.trim();
+      const e = document.getElementById("manual-end-" + i).value.trim();
+      if (s && e) {
+        const sf = parseFloat(s), ef = parseFloat(e);
+        segments.push([Math.min(sf, ef), Math.max(sf, ef)]);
+      }
+    }
+    if (!segments.length) segments = [[698, 960]];
+    const seen = new Set();
+    segments = segments.filter(([s, e]) => {
+      const k = s + "_" + e;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    }).sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]));
+
+    const effYmin = parseFloat(document.getElementById("eff-ymin").value);
+    const effYmax = parseFloat(document.getElementById("eff-ymax").value);
+    const gainYmin = parseFloat(document.getElementById("gain-ymin").value);
+    const gainYmax = parseFloat(document.getElementById("gain-ymax").value);
+    if (effYmax <= effYmin || gainYmax <= gainYmin) throw new Error("Y 軸 Max 必須大於 Min。");
+
+    const maxGap = parseFloat(document.getElementById("max-gap").value);
+    if (!(maxGap > 0)) throw new Error("線段最大頻率間隔必須大於 0。");
+
+    const sourceType = document.querySelector('input[name="source"]:checked').value;
+    let seriesList;
+    if (sourceType === "original") {
+      seriesList = [];
+      for (const file of files) {
+        const text = await readFileText(file);
+        seriesList.push(parseETSFile(text, file.name));
+      }
+    } else {
+      seriesList = [];
+      for (const file of files) {
+        const text = await readFileText(file);
+        seriesList.push(...parseCombinedFile(text, file.name));
+      }
+    }
+
+    resultsEl.innerHTML = "";
+
+    function addResultBlock(id, heading, pngName) {
+      const card = document.createElement("div");
+      card.className = "card result-card";
+      card.innerHTML = `
+        <h2>${heading}</h2>
+        <div class="plot-div" id="${id}"></div>
+        <button class="dl-btn" id="${id}-dl">下載 ${heading} PNG</button>
+      `;
+      resultsEl.appendChild(card);
+      document.getElementById(id + "-dl").addEventListener("click", () => downloadPng(id, pngName));
+    }
+
+    if (showEff) {
+      addResultBlock("chart-eff", "Efficiency", "efficiency.png");
+      renderMultiPanel("chart-eff", seriesList, "eff", segments, [effYmin, effYmax], "Efficiency (%)", maxGap);
+    }
+    if (showGain) {
+      addResultBlock("chart-gain", "Peak Gain", "peak_gain.png");
+      renderMultiPanel("chart-gain", seriesList, "gain", segments, [gainYmin, gainYmax], "Peak Gain (dBi)", maxGap);
+    }
+
+    const eff = mergedTable(seriesList, "eff");
+    const gain = mergedTable(seriesList, "gain");
+    const combined = combinedTable(seriesList);
+
+    const dlCard = document.createElement("div");
+    dlCard.className = "card result-card";
+    dlCard.innerHTML = `
+      <h2>資料下載</h2>
+      <button class="dl-btn" id="dl-eff">下載 Efficiency CSV</button>
+      <button class="dl-btn" id="dl-gain">下載 Peak Gain CSV</button>
+      <button class="dl-btn" id="dl-combined">下載 所有數據 CSV</button>
+    `;
+    resultsEl.appendChild(dlCard);
+    document.getElementById("dl-eff").addEventListener("click", () => downloadCsv(eff.freq, eff.labels, eff.table, "eff.csv", 0));
+    document.getElementById("dl-gain").addEventListener("click", () => downloadCsv(gain.freq, gain.labels, gain.table, "gain.csv", 1));
+    document.getElementById("dl-combined").addEventListener("click", () => downloadCsv(combined.freq, combined.columns, combined.table, "combined.csv", null));
+
+    showMsg("完成。", "success");
+  } catch (err) {
+    showMsg("執行失敗：" + err.message, "error");
+  }
+});
+</script>
+</body>
+</html>
