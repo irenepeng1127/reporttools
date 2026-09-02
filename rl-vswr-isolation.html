@@ -290,7 +290,7 @@
   </div>
 
   <div class="card">
-    <h2>5. 頻段</h2>
+    <h2>5. 塗色頻段</h2>
     <div class="check-row" id="band-checks"></div>
     <details style="margin-top:12px;">
       <summary>手動頻段（選填）</summary>
@@ -712,7 +712,10 @@ function renderChart(divId, data, title, yLabel, specs, bandRanges, xlim, yOpts,
 }
 
 function downloadPng(divId, filename) {
-  Plotly.toImage(document.getElementById(divId), { format: "png", width: 1600, height: 1000, scale: 2 }).then(url => {
+  const el = document.getElementById(divId);
+  const w = Math.round(el.offsetWidth) || 1200;
+  const h = Math.round(el.offsetHeight) || 560;
+  Plotly.toImage(el, { format: "png", width: w, height: h, scale: 3 }).then(url => {
     const a = document.createElement("a");
     a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
