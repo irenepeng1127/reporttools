@@ -540,7 +540,7 @@ function buildSegmentTraces(seriesList, key, s, e, maxGap, divisor) {
 // Each selected band gets its own independent, fixed-size chart (so the
 // aspect ratio never changes as more bands are added) laid out in a row
 // that wraps onto new lines. Each panel gets its own PNG download button.
-function renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, maxGap, unit, filenameBase, heading) {
+function renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, maxGap, unit, filenameBase) {
   const divisor = unit === "GHz" ? 1000 : 1;
   containerEl.innerHTML = "";
   const scroll = document.createElement("div");
@@ -567,7 +567,6 @@ function renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, 
     const xrangeMhz = [s - 10, e + 10];
     const xrange = [xrangeMhz[0] / divisor, xrangeMhz[1] / divisor];
     const layout = {
-      title: { text: heading, font: { size: 15, color: "#1a1a1a" } },
       xaxis: {
         title: { text: `Frequency (${unit})`, font: { size: 12 } }, range: xrange,
         dtick: niceStep(xrange[1] - xrange[0], 51), tickangle: -90, tickfont: { size: 10 },
@@ -582,7 +581,7 @@ function renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, 
       },
       paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
       legend: { orientation: "h", x: 0.5, xanchor: "center", y: legendY, font: { size: 10 } },
-      margin: { l: 50, r: 10, t: 30, b: marginBottom },
+      margin: { l: 50, r: 10, t: 15, b: marginBottom },
       width: PANEL_WIDTH, height: PANEL_HEIGHT,
     };
     Plotly.newPlot(divId, traces, layout, { responsive: true, displaylogo: false });
@@ -735,7 +734,7 @@ document.getElementById("run-btn").addEventListener("click", async () => {
       card.innerHTML = `<h2>${heading}</h2><div id="${id}"></div>`;
       resultsEl.appendChild(card);
       const containerEl = document.getElementById(id);
-      renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, maxGap, currentUnit, filenameBase, heading);
+      renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, maxGap, currentUnit, filenameBase);
     }
 
     const bandRanges = segments;
