@@ -1,0 +1,1245 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Antenna Heatmap</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+  :root {
+    color-scheme: dark light;
+    --bg: #0e1117;
+    --fg: #fafafa;
+    --muted: #8b949e;
+    --card-bg: rgba(120, 120, 120, 0.07);
+    --card-border: rgba(120, 120, 120, 0.25);
+    --input-bg: rgba(120, 120, 120, 0.08);
+    --input-border: rgba(120, 120, 120, 0.35);
+    --accent: #4f8cff;
+    --accent-fg: #ffffff;
+    --error-bg: rgba(220, 60, 60, 0.12);
+    --error-fg: #ff8080;
+    --success-bg: rgba(60, 180, 100, 0.12);
+    --success-fg: #6fdc9a;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #ffffff;
+      --fg: #14171a;
+      --muted: #6b7280;
+      --card-bg: rgba(120, 120, 120, 0.05);
+      --card-border: rgba(120, 120, 120, 0.2);
+      --input-bg: rgba(120, 120, 120, 0.06);
+      --input-border: rgba(120, 120, 120, 0.3);
+      --error-bg: rgba(220, 60, 60, 0.08);
+      --error-fg: #c92a2a;
+      --success-bg: rgba(60, 180, 100, 0.08);
+      --success-fg: #2b8a3e;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  .wrap { max-width: 1300px; margin: 0 auto; padding: 2rem 1.6rem 4rem; }
+
+  .top-nav { margin-bottom: 1.2rem; }
+  .top-nav a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  .top-nav a:hover { color: var(--fg); }
+
+  h1 { font-size: 1.9rem; font-weight: 800; margin: 0 0 0.2rem; }
+  .caption { color: var(--muted); font-size: 0.92rem; margin-bottom: 1.4rem; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 1.4rem; flex-wrap: wrap; }
+  .tab-btn {
+    padding: 10px 16px; border-radius: 10px; border: 1px solid var(--card-border);
+    background: var(--card-bg); color: var(--fg); font-size: 0.92rem; font-weight: 600; cursor: pointer;
+  }
+  .tab-btn.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .card {
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    background: var(--card-bg);
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 1.05rem; font-weight: 700; margin: 0 0 0.9rem; }
+
+  .check-row { display: flex; flex-wrap: wrap; gap: 14px; }
+  .check-row label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.92rem; cursor: pointer; }
+  .radio-row { display: flex; flex-wrap: wrap; gap: 14px; }
+  .radio-row label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.92rem; cursor: pointer; }
+
+  input[type="file"] {
+    width: 100%; padding: 10px; border-radius: 10px;
+    border: 1px dashed var(--input-border); background: var(--input-bg); color: var(--fg);
+  }
+  .file-list { margin-top: 8px; font-size: 0.85rem; color: var(--muted); }
+
+  .field-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .field-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .field-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 0.8rem; color: var(--muted); }
+
+  select, input[type="text"], input[type="number"] {
+    padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--input-border); background: var(--input-bg); color: var(--fg); font-size: 0.92rem;
+  }
+  select { width: 100%; }
+  select option { color: #14171a; background: #ffffff; }
+  select[multiple] { min-height: 120px; }
+
+  .hint { font-size: 0.8rem; color: var(--muted); margin: 0 0 8px; }
+
+  .run-btn {
+    display: block; width: 100%; padding: 12px; border-radius: 10px;
+    border: none; background: var(--accent); color: var(--accent-fg);
+    font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 4px;
+  }
+  .run-btn:hover { filter: brightness(1.08); }
+
+  .msg { padding: 10px 14px; border-radius: 10px; font-size: 0.9rem; margin-top: 12px; }
+  .msg.error { background: var(--error-bg); color: var(--error-fg); }
+  .msg.success { background: var(--success-bg); color: var(--success-fg); }
+  .msg.info { background: var(--input-bg); color: var(--muted); }
+
+  .result-card { margin-top: 22px; }
+  .result-card h2 { font-size: 1.15rem; }
+
+  .dl-btn {
+    display: inline-block; margin-top: 10px; padding: 8px 14px; border-radius: 8px;
+    border: 1px solid var(--input-border); background: var(--input-bg); color: var(--fg);
+    font-size: 0.85rem; font-weight: 600; cursor: pointer; text-decoration: none; margin-right: 8px;
+  }
+  .dl-btn:hover { border-color: var(--accent); }
+
+  .heatmap-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .heatmap-item .plot-div { width: 100%; height: 380px; }
+  .heatmap-item { border: 1px solid var(--card-border); border-radius: 10px; padding: 10px; }
+
+  .metric-row { display: flex; gap: 24px; margin: 10px 0; }
+  .metric { }
+  .metric .label { font-size: 0.8rem; color: var(--muted); }
+  .metric .value { font-size: 1.4rem; font-weight: 700; }
+
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-nav"><a href="./index.html">&larr; 回入口頁</a></div>
+  <h1>📡 Antenna Heatmap</h1>
+  <div class="caption">保留 Database、Analysis、Heatmap、Homogenous / MIMO 四大功能。（純前端運算，資料不會上傳到任何伺服器）</div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="tab1">① 產生資料庫</button>
+    <button class="tab-btn" data-tab="tab2">② 篩選分析資料</button>
+    <button class="tab-btn" data-tab="tab3">③ 產生 Heatmap</button>
+    <button class="tab-btn" data-tab="tab4">④ Homogenous / MIMO</button>
+  </div>
+
+  <!-- TAB 1 -->
+  <div class="tab-panel active" id="tab1">
+    <div class="card">
+      <h2>① 產生資料庫</h2>
+      <input type="file" id="csv-input" accept=".csv" multiple />
+      <div class="file-list" id="csv-file-list"></div>
+      <button class="run-btn" id="build-db-btn">產生 Database Excel</button>
+      <div id="db-msg-box"></div>
+    </div>
+    <div id="db-download-box"></div>
+  </div>
+
+  <!-- TAB 2 -->
+  <div class="tab-panel" id="tab2">
+    <div class="card">
+      <h2>② 篩選分析資料</h2>
+      <div class="hint">若不是從第①步接續，可直接上傳 Database.xlsx</div>
+      <input type="file" id="db-upload" accept=".xlsx" />
+      <div id="db-status-box"></div>
+    </div>
+    <div id="tab2-filters" hidden>
+      <div class="card">
+        <div class="field-grid cols-3">
+          <div class="field"><label>天線</label><select id="filter-ants" multiple></select></div>
+          <div class="field"><label>極化</label><select id="filter-pols" multiple></select></div>
+          <div class="field"><label>頻率 (MHz)</label><select id="filter-freqs" multiple></select></div>
+        </div>
+        <button class="run-btn" id="build-analysis-btn">產生 Analysis + Comcast Excel</button>
+        <div id="analysis-msg-box"></div>
+      </div>
+      <div id="analysis-download-box"></div>
+    </div>
+  </div>
+
+  <!-- TAB 3 -->
+  <div class="tab-panel" id="tab3">
+    <div class="card">
+      <h2>③ 產生 Heatmap</h2>
+      <div class="hint">若不是從第②步接續，可直接上傳 Antenna_Analysis_Selected.xlsx / Comcast_Heatmap.xlsx</div>
+      <div class="field-grid">
+        <div class="field"><label>Analysis Excel</label><input type="file" id="analysis-upload" accept=".xlsx"></div>
+        <div class="field"><label>Comcast Excel</label><input type="file" id="comcast-upload-t3" accept=".xlsx"></div>
+      </div>
+      <div id="analysis-status-box"></div>
+    </div>
+    <div id="tab3-controls" hidden>
+      <div class="card">
+        <div class="field-grid cols-3">
+          <div class="field"><label>天線</label><select id="hm-ants" multiple></select></div>
+          <div class="field"><label>極化</label><select id="hm-pol"></select></div>
+          <div class="field"><label>頻率 (MHz)</label><select id="hm-freq"></select></div>
+        </div>
+        <div class="field-grid cols-4" style="margin-top:12px;">
+          <div class="field"><label>vmin（留空 = 自動）</label><input type="number" id="hm-vmin"></div>
+          <div class="field"><label>vmax（留空 = 自動）</label><input type="number" id="hm-vmax"></div>
+          <div class="field"><label>step（留空 = 自動）</label><input type="number" id="hm-step" min="0"></div>
+          <div class="field"><label>座標格式</label>
+            <div class="radio-row" style="margin-top:6px;">
+              <label><input type="radio" name="hm-mode" value="Comcast" checked> Comcast</label>
+              <label><input type="radio" name="hm-mode" value="ETS"> ETS</label>
+            </div>
+          </div>
+        </div>
+        <button class="run-btn" id="gen-heatmap-btn" style="margin-top:12px;">產生 Heatmap</button>
+        <div id="heatmap-msg-box"></div>
+      </div>
+    </div>
+    <div id="heatmap-results"></div>
+  </div>
+
+  <!-- TAB 4 -->
+  <div class="tab-panel" id="tab4">
+    <div class="card">
+      <h2>④ Homogenous / MIMO</h2>
+      <div class="hint">若不是從第②步接續，可直接上傳 Comcast_Heatmap.xlsx</div>
+      <input type="file" id="comcast-upload-t4" accept=".xlsx" />
+      <div id="comcast-status-box"></div>
+    </div>
+    <div id="tab4-controls" hidden>
+      <div class="card">
+        <div class="field"><label>頻率 (MHz)</label><select id="homo-freq"></select></div>
+      </div>
+      <div class="card">
+        <h2>Homogenous Heatmap</h2>
+        <div class="field" style="max-width:220px;"><label>Max-A (dB)</label><input type="number" id="homo-a" value="6" step="0.5"></div>
+        <button class="run-btn" id="gen-homo-btn" style="margin-top:10px;">產生 Homogenous Heatmap</button>
+      </div>
+      <div id="homo-results"></div>
+      <div class="card">
+        <h2>MIMO Heatmap</h2>
+        <div class="field" style="max-width:220px;"><label>MIMO Threshold A (dB)</label><input type="number" id="mimo-a" value="3" step="0.5"></div>
+        <button class="run-btn" id="gen-mimo-btn" style="margin-top:10px;">產生 MIMO Heatmap</button>
+      </div>
+      <div id="mimo-results"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// Constants
+// ============================================================
+const PHI_ANGLES = Array.from({ length: 13 }, (_, i) => i * 15);           // 0..180
+const THETA_ANGLES = Array.from({ length: 25 }, (_, i) => -180 + i * 15);  // -180..180
+const COMCAST_THETA = Array.from({ length: 13 }, (_, i) => i * 15);        // 0..180
+const COMCAST_PHI = Array.from({ length: 25 }, (_, i) => i * 15);          // 0..360
+
+// ---------- tab switching ----------
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+
+function showMsg(boxId, text, type) {
+  document.getElementById(boxId).innerHTML = `<div class="msg ${type}">${text}</div>`;
+}
+
+// ============================================================
+// File reading helpers
+// ============================================================
+function readFileText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => {
+      const buf = reader.result;
+      let text = new TextDecoder("iso-8859-1").decode(buf); // original opens with encoding="latin1"
+      resolve(text);
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function readFileArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => resolve(reader.result);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function downloadArrayBuffer(buffer, filename, mime) {
+  const blob = new Blob([buffer], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+// ============================================================
+// 1. ETS raw CSV -> Database
+// ============================================================
+function isPureDigit(s) {
+  return /^\d+$/.test(s);
+}
+
+function parseEtsRawCsv(text, antennaName) {
+  const lines = text.split(/\r\n|\n|\r/);
+  const dataRecords = [];
+  const summaryData = {};
+  let currentPolarization = null;
+  let currentPhiAngle = null;
+
+  for (let li = 6; li < lines.length; li++) {
+    const raw = lines[li];
+    const parts = raw.trim().split(",");
+    if (parts.length < 3) continue;
+
+    const part0 = parts[0].trim().toLowerCase();
+    const part1 = parts[1].trim().toLowerCase();
+    const part2 = parts[2].trim();
+
+    if (part0.includes("theta")) { currentPolarization = "Vertical"; currentPhiAngle = null; continue; }
+    if (part0.includes("phi")) { currentPolarization = "Horizontal"; currentPhiAngle = null; continue; }
+    if (part0.includes("total")) { currentPolarization = "Total"; currentPhiAngle = null; continue; }
+
+    let foundPhi = false;
+    for (const part of [parts[0], parts[1]]) {
+      const p = part.trim();
+      if (isPureDigit(p)) {
+        const phi = parseInt(p, 10);
+        if (phi >= 0 && phi <= 180 && phi % 15 === 0) {
+          currentPhiAngle = phi;
+          foundPhi = true;
+          break;
+        }
+      }
+    }
+    if (foundPhi) continue;
+
+    if (currentPolarization === "Total") {
+      let key = null;
+      if (part1.includes("directivity")) key = "Directivity (dBi)";
+      else if (part1.includes("efficiency")) key = "Efficiency (%)";
+      else if (part1.includes("average gain")) key = "Average Gain (dB)";
+      else if (part1.includes("gain") && !part1.includes("directivity") && !part1.includes("average")) key = "Gain (dBi)";
+
+      if (key) {
+        const vals = [];
+        for (let k = 2; k < parts.length; k++) {
+          const v = parts[k].trim();
+          if (!v) continue;
+          const f = parseFloat(v);
+          if (Number.isFinite(f)) vals.push(f);
+        }
+        summaryData[key] = vals;
+        continue;
+      }
+    }
+
+    if (currentPolarization && currentPhiAngle !== null) {
+      const freq = parseFloat(part2);
+      if (!Number.isFinite(freq)) continue;
+
+      const resp = [];
+      for (let k = 3; k < 28; k++) {
+        const v = k < parts.length ? parts[k].trim() : "";
+        if (v === "") { resp.push(NaN); continue; }
+        const f = parseFloat(v);
+        if (Number.isFinite(f)) resp.push(Math.max(Math.min(f, 60), -100));
+        else resp.push(NaN);
+      }
+      if (resp.length === 25) {
+        dataRecords.push({ Antenna: antennaName, Polarization: currentPolarization, PhiAngle: currentPhiAngle, Freq: freq, values: resp });
+      }
+    }
+  }
+
+  // Build per-antenna summary rows (mirrors generate_database's summary_df construction)
+  const summaryRows = [];
+  const summaryKeys = Object.keys(summaryData);
+  if (summaryKeys.length && dataRecords.length) {
+    const cnt = summaryData[summaryKeys[0]].length;
+    let freqs = Array.from(new Set(dataRecords.filter(r => r.Polarization === "Total").map(r => r.Freq))).sort((a, b) => a - b);
+    if (!freqs.length) freqs = Array.from({ length: cnt }, (_, i) => i);
+    for (let i = 0; i < cnt; i++) {
+      const pick = key => (summaryData[key] && i < summaryData[key].length ? summaryData[key][i] : NaN);
+      summaryRows.push({
+        Antenna: antennaName,
+        "Frequency(MHz)": i < freqs.length ? freqs[i] : NaN,
+        "Directivity (dBi)": pick("Directivity (dBi)"),
+        "Efficiency (%)": pick("Efficiency (%)"),
+        "Average Gain (dB)": pick("Average Gain (dB)"),
+        "Gain (dBi)": pick("Gain (dBi)"),
+      });
+    }
+  }
+
+  return { records: dataRecords, summaryRows };
+}
+
+function buildDatabaseTables(fileResults) {
+  const tables = { Vertical: [], Horizontal: [], Total: [] };
+  const summary = [];
+  fileResults.forEach(fr => {
+    fr.records.forEach(r => {
+      const row = { Antenna: r.Antenna, Polarization: r.Polarization, PhiAngle: r.PhiAngle, "Frequency(MHz)": r.Freq };
+      THETA_ANGLES.forEach((t, i) => { row[String(t)] = r.values[i]; });
+      tables[r.Polarization].push(row);
+    });
+    fr.summaryRows.forEach(s => summary.push(s));
+  });
+  return { Vertical: tables.Vertical, Horizontal: tables.Horizontal, Total: tables.Total, Summary: summary };
+}
+
+// ============================================================
+// Excel I/O (ExcelJS)
+// ============================================================
+async function writeObjectsWorkbook(sheets) {
+  const wb = new ExcelJS.Workbook();
+  Object.keys(sheets).forEach(name => {
+    const rows = sheets[name];
+    if (!rows || !rows.length) return;
+    const ws = wb.addWorksheet(name.slice(0, 31));
+    const cols = Object.keys(rows[0]);
+    ws.addRow(cols);
+    rows.forEach(r => ws.addRow(cols.map(c => (Number.isNaN(r[c]) ? null : r[c]))));
+  });
+  return wb.xlsx.writeBuffer();
+}
+
+async function loadWorkbook(arrayBuffer) {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(arrayBuffer);
+  return wb;
+}
+
+function sheetToObjects(ws) {
+  const headerRow = ws.getRow(1);
+  const headers = [];
+  headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => { headers[colNumber] = cell.value; });
+  const rows = [];
+  for (let r = 2; r <= ws.rowCount; r++) {
+    const row = ws.getRow(r);
+    if (row.cellCount === 0) continue;
+    const obj = {};
+    let any = false;
+    headers.forEach((h, colNumber) => {
+      if (h === undefined) return;
+      const v = row.getCell(colNumber).value;
+      obj[h] = v;
+      if (v !== null && v !== undefined) any = true;
+    });
+    if (any) rows.push(obj);
+  }
+  return rows;
+}
+
+// Reads a "matrix sheet" written with pandas-style index=True layout:
+// row1 = [indexLabel, col1, col2, ...]; each subsequent row = [indexValue, v1, v2, ...]
+function sheetToMatrix(ws) {
+  const headerRow = ws.getRow(1);
+  const cols = [];
+  headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    if (colNumber > 1) cols[colNumber - 2] = cell.value;
+  });
+  const indexVals = [];
+  const matrix = [];
+  for (let r = 2; r <= ws.rowCount; r++) {
+    const row = ws.getRow(r);
+    const idxVal = row.getCell(1).value;
+    if (idxVal === null || idxVal === undefined || idxVal === "") continue;
+    indexVals.push(idxVal);
+    const dataRow = [];
+    for (let c = 0; c < cols.length; c++) {
+      const v = row.getCell(c + 2).value;
+      dataRow.push(typeof v === "number" ? v : (v == null ? NaN : parseFloat(v)));
+    }
+    matrix.push(dataRow);
+  }
+  return { index: indexVals, columns: cols, matrix };
+}
+
+// ============================================================
+// 2. Filtering + Comcast conversion
+// ============================================================
+function convertToComcastFormat(matrix, phiRows, thetaCols) {
+  // matrix[phiRowIdx][thetaColIdx], phiRows: 13 values 0..180, thetaCols: 25 values -180..180
+  const thetaList = thetaCols.map(t => Math.round(parseFloat(t)));
+  const leftTheta = thetaList.slice(0, 13);   // -180..0
+  const rightTheta = thetaList.slice(12);     // 0..180
+
+  const com = COMCAST_THETA.map(() => new Array(COMCAST_PHI.length).fill(NaN));
+  const thetaIndexOf = {};
+  thetaList.forEach((t, i) => { thetaIndexOf[t] = i; });
+  const comThetaIndexOf = {};
+  COMCAST_THETA.forEach((t, i) => { comThetaIndexOf[t] = i; });
+  const comPhiIndexOf = {};
+  COMCAST_PHI.forEach((p, i) => { comPhiIndexOf[p] = i; });
+
+  phiRows.forEach((phi, phiIdx) => {
+    const row = matrix[phiIdx];
+    rightTheta.forEach(t => {
+      const val = row[thetaIndexOf[t]];
+      com[comThetaIndexOf[t]][comPhiIndexOf[phi]] = val;
+    });
+    const phiBack = (phi + 180) % 360;
+    leftTheta.forEach(t => {
+      const val = row[thetaIndexOf[t]];
+      com[comThetaIndexOf[Math.abs(t)]][comPhiIndexOf[phiBack]] = val;
+    });
+  });
+
+  // com[:,360] = com[:,0]
+  const col0Idx = comPhiIndexOf[0];
+  const col360Idx = comPhiIndexOf[360];
+  com.forEach(row => { row[col360Idx] = row[col0Idx]; });
+
+  return { theta: COMCAST_THETA.slice(), phi: COMCAST_PHI.slice(), matrix: com };
+}
+
+function nanmaxMat(mat) {
+  let m = -Infinity, any = false;
+  mat.forEach(row => row.forEach(v => { if (Number.isFinite(v)) { any = true; if (v > m) m = v; } }));
+  return any ? m : NaN;
+}
+function nanminMat(mat) {
+  let m = Infinity, any = false;
+  mat.forEach(row => row.forEach(v => { if (Number.isFinite(v)) { any = true; if (v < m) m = v; } }));
+  return any ? m : NaN;
+}
+function argmaxFlat(mat) {
+  let best = -Infinity, bi = 0, bj = 0;
+  mat.forEach((row, i) => row.forEach((v, j) => { if (Number.isFinite(v) && v > best) { best = v; bi = i; bj = j; } }));
+  return [bi, bj];
+}
+function argminFlat(mat) {
+  let best = Infinity, bi = 0, bj = 0;
+  mat.forEach((row, i) => row.forEach((v, j) => { if (Number.isFinite(v) && v < best) { best = v; bi = i; bj = j; } }));
+  return [bi, bj];
+}
+
+function computeComcastStats(mat) {
+  const theta = COMCAST_THETA, phi = COMCAST_PHI;
+  const gmax = nanmaxMat(mat), gmin = nanminMat(mat), gdiff = gmax - gmin;
+  const [gr, gc] = argmaxFlat(mat), [lr, lc] = argminFlat(mat);
+
+  const upper = mat.slice(0, 7);
+  const umax = nanmaxMat(upper), umin = nanminMat(upper), udiff = umax - umin;
+  const [ur, uc] = argmaxFlat(upper), [ulr, ulc] = argminFlat(upper);
+
+  const lower = mat.slice(7, 13);
+  const lmax = nanmaxMat(lower), lmin = nanminMat(lower), ldiff = lmax - lmin;
+  const [lr3, lc3] = argmaxFlat(lower), [lr4, lc4] = argminFlat(lower);
+
+  // df_full: drop phi=360 column, average theta=180 row across phi
+  const phiIdxNo360 = phi.map((p, i) => i).filter(i => phi[i] !== 360);
+  const full = mat.map(row => phiIdxNo360.map(i => row[i]));
+  const row180Idx = theta.indexOf(180);
+  const avg180 = nanmeanArr(full[row180Idx]);
+  full[row180Idx] = full[row180Idx].map(() => avg180);
+
+  const pwr = full.map(row => row.map(v => Math.pow(10, v / 10)));
+  let ptot = 0;
+  pwr.forEach(row => row.forEach(v => { ptot += v; }));
+
+  const regions = [
+    ["北極 ±30°", t => t <= 30],
+    ["北極 ±45°", t => t <= 45],
+    ["北極 ±60°", t => t <= 60],
+    ["赤道 ±15°", t => t >= 75 && t <= 105],
+    ["赤道 ±30°", t => t >= 60 && t <= 120],
+    ["南極 ±30°", t => t >= 150],
+    ["南極 ±45°", t => t >= 135],
+    ["南極 ±60°", t => t >= 120],
+  ];
+  const regionResults = regions.map(([label, pred]) => {
+    let s = 0;
+    theta.forEach((t, i) => { if (pred(t)) pwr[i].forEach(v => { s += v; }); });
+    const val = ptot ? (s / ptot) * 100 : NaN;
+    return { label, value: Math.round(val * 100) / 100 };
+  });
+
+  return {
+    gmax: round2(gmax), gmin: round2(gmin), gdiff: round2(gdiff), t_gmax: theta[gr], p_gmax: phi[gc], t_gmin: theta[lr], p_gmin: phi[lc],
+    umax: round2(umax), umin: round2(umin), udiff: round2(udiff), t_umax: theta[ur], p_umax: phi[uc], t_umin: theta[ulr], p_umin: phi[ulc],
+    lmax: round2(lmax), lmin: round2(lmin), ldiff: round2(ldiff), t_lmax: theta[7 + lr3], p_lmax: phi[lc3], t_lmin: theta[7 + lr4], p_lmin: phi[lc4],
+    regions: regionResults,
+  };
+}
+function round2(v) { return Math.round(v * 100) / 100; }
+function nanmeanArr(arr) {
+  let s = 0, c = 0;
+  arr.forEach(v => { if (Number.isFinite(v)) { s += v; c++; } });
+  return c ? s / c : NaN;
+}
+
+function prepareAnalysisData(dbTables, selAnts, selPols, selFreqs) {
+  const antennaTables = new Map(); // key "ant|pol|freq" -> {phi, theta, matrix}
+  const correlationTables = new Map(); // key "pol|freq" -> {corr, uncorr}
+
+  selPols.forEach(pol => {
+    const rows = dbTables[pol] || [];
+    selFreqs.forEach(freq => {
+      const mats = [];
+      let template = null;
+
+      selAnts.forEach(ant => {
+        const sel = rows.filter(r => r.Antenna === ant && Number(r["Frequency(MHz)"]) === Number(freq) && PHI_ANGLES.includes(Number(r.PhiAngle)));
+        if (!sel.length) return;
+        const byPhi = {};
+        sel.forEach(r => { byPhi[Number(r.PhiAngle)] = r; });
+        if (!PHI_ANGLES.every(p => byPhi[p])) return;
+
+        const matrix = PHI_ANGLES.map(p => THETA_ANGLES.map(t => {
+          const v = byPhi[p][String(t)];
+          return typeof v === "number" ? v : (v == null ? NaN : parseFloat(v));
+        }));
+        antennaTables.set(`${ant}|${pol}|${freq}`, { phi: PHI_ANGLES.slice(), theta: THETA_ANGLES.slice(), matrix });
+        mats.push(matrix);
+        template = { phi: PHI_ANGLES.slice(), theta: THETA_ANGLES.slice() };
+      });
+
+      if (!mats.length || !template) return;
+      const nAnt = mats.length;
+      const corr = PHI_ANGLES.map((_, pi) => THETA_ANGLES.map((_, ti) => {
+        let s = 0;
+        mats.forEach(m => { s += Math.pow(10, m[pi][ti] / 20); });
+        return 10 * Math.log10((s * s) / nAnt);
+      }));
+      const uncorr = PHI_ANGLES.map((_, pi) => THETA_ANGLES.map((_, ti) => {
+        let s = 0;
+        mats.forEach(m => { s += Math.pow(10, m[pi][ti] / 10); });
+        return 10 * Math.log10(s / nAnt);
+      }));
+      correlationTables.set(`${pol}|${freq}`, { corr, uncorr, phi: template.phi, theta: template.theta });
+    });
+  });
+
+  if (!antennaTables.size) throw new Error("找不到符合目前篩選條件的天線資料。");
+  return { antennaTables, correlationTables };
+}
+
+function matrixSheetRows(phi, theta, matrix, indexLabel) {
+  const rows = [];
+  const header = [indexLabel, ...theta.map(String)];
+  rows.push(header);
+  phi.forEach((p, i) => rows.push([p, ...matrix[i]]));
+  return rows;
+}
+
+async function writeAnalysisWorkbook(antennaTables, correlationTables) {
+  const wb = new ExcelJS.Workbook();
+  antennaTables.forEach((data, key) => {
+    const [ant, pol, freq] = key.split("|");
+    const label = String(parseInt(freq, 10));
+    const name = `${ant}_${pol}_${label}`.slice(0, 31);
+    const ws = wb.addWorksheet(name);
+    matrixSheetRows(data.phi, data.theta, data.matrix, "Phi Angle").forEach(r => ws.addRow(r));
+  });
+  correlationTables.forEach((data, key) => {
+    const [pol, freq] = key.split("|");
+    const label = String(parseInt(freq, 10));
+    const cname = `${pol}_Corr_${label}`.slice(0, 31);
+    const uname = `${pol}_Uncorr_${label}`.slice(0, 31);
+    const wsC = wb.addWorksheet(cname);
+    matrixSheetRows(data.phi, data.theta, data.corr, "Phi Angle").forEach(r => wsC.addRow(r));
+    const wsU = wb.addWorksheet(uname);
+    matrixSheetRows(data.phi, data.theta, data.uncorr, "Phi Angle").forEach(r => wsU.addRow(r));
+  });
+  return wb.xlsx.writeBuffer();
+}
+
+async function writeComcastWorkbook(analysisBuffer) {
+  const srcWb = await loadWorkbook(analysisBuffer);
+  const wb = new ExcelJS.Workbook();
+
+  srcWb.eachSheet(srcWs => {
+    const { index, columns, matrix } = sheetToMatrix(srcWs);
+    const phiRows = index.map(v => parseInt(v, 10));
+    const { theta, phi, matrix: comMatrix } = convertToComcastFormat(matrix, phiRows, columns);
+
+    const ws = wb.addWorksheet(srcWs.name.slice(0, 31));
+    const header = ["", ...phi.map(String)];
+    ws.addRow(header);
+    theta.forEach((t, i) => ws.addRow([t, ...comMatrix[i]]));
+
+    appendComcastStats(ws, comMatrix);
+  });
+
+  return wb.xlsx.writeBuffer();
+}
+
+function appendComcastStats(ws, mat) {
+  const stats = computeComcastStats(mat);
+  const thin = { style: "thin", color: { argb: "FF000000" } };
+  const box = { top: thin, left: thin, right: thin, bottom: thin };
+  const headerFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDDDDD" } };
+  const bold = { bold: true };
+  const center = { horizontal: "center", vertical: "middle" };
+
+  const base = 16;
+  function writeStat(row, label, value, info) {
+    ws.mergeCells(row, 2, row, 3);
+    ws.getCell(row, 2).value = label;
+    ws.getCell(row, 4).value = Math.round(value * 100) / 100;
+    if (info) {
+      ws.mergeCells(row, 5, row, 6);
+      ws.getCell(row, 5).value = info;
+    }
+  }
+
+  writeStat(base, "Global Max Gain", stats.gmax, `θ=${stats.t_gmax}°, φ=${stats.p_gmax}°`);
+  writeStat(base + 1, "Global Min Gain", stats.gmin, `θ=${stats.t_gmin}°, φ=${stats.p_gmin}°`);
+  writeStat(base + 2, "Global Max−Min", stats.gdiff);
+
+  writeStat(base + 4, "Upper Max Gain", stats.umax, `θ=${stats.t_umax}°, φ=${stats.p_umax}°`);
+  writeStat(base + 5, "Upper Min Gain", stats.umin, `θ=${stats.t_umin}°, φ=${stats.p_umin}°`);
+  writeStat(base + 6, "Upper Max−Min", stats.udiff);
+
+  writeStat(base + 8, "Lower Max Gain", stats.lmax, `θ=${stats.t_lmax}°, φ=${stats.p_lmax}°`);
+  writeStat(base + 9, "Lower Min Gain", stats.lmin, `θ=${stats.t_lmin}°, φ=${stats.p_lmin}°`);
+  writeStat(base + 10, "Lower Max−Min", stats.ldiff);
+
+  const start2 = base + 12;
+  stats.regions.forEach((r, i) => {
+    const row = start2 + i;
+    ws.mergeCells(row, 2, row, 3);
+    ws.getCell(row, 2).value = `${r.label} 分布(%)`;
+    ws.getCell(row, 4).value = r.value;
+  });
+
+  const blocks = [[base, base + 2], [base + 4, base + 6], [base + 8, base + 10], [start2, start2 + 7]];
+  blocks.forEach(([sr, er]) => {
+    for (let r = sr; r <= er; r++) {
+      const labelCell = ws.getCell(r, 2);
+      labelCell.fill = headerFill;
+      labelCell.font = bold;
+      for (let c = 2; c <= 6; c++) {
+        const cc = ws.getCell(r, c);
+        cc.border = box;
+        cc.alignment = center;
+      }
+    }
+  });
+}
+
+// ============================================================
+// 3. Heatmap generation (Plotly)
+// ============================================================
+function cleanMatrixForMode(index, columns, matrix, isComcast) {
+  const wantTheta = isComcast ? COMCAST_THETA : PHI_ANGLES;
+  const wantCols = isComcast ? COMCAST_PHI : THETA_ANGLES;
+  const idxNum = index.map(v => parseInt(v, 10));
+  const colNum = columns.map(v => parseInt(v, 10));
+  const rowMap = new Map(); idxNum.forEach((v, i) => rowMap.set(v, i));
+  const colMap = new Map(); colNum.forEach((v, i) => colMap.set(v, i));
+  const out = wantTheta.map(r => wantCols.map(c => {
+    const ri = rowMap.get(r), ci = colMap.get(c);
+    if (ri === undefined || ci === undefined) return NaN;
+    return matrix[ri][ci];
+  }));
+  return { rows: wantTheta, cols: wantCols, matrix: out };
+}
+
+function heatmapLayoutForMode(isComcast) {
+  if (isComcast) return { xlabel: "Phi Angle (deg)", ylabel: "Theta Angle (deg)" };
+  return { xlabel: "Theta Angle (deg)", ylabel: "Phi Angle (deg)" };
+}
+
+function renderHeatmapPanel(divId, label, pol, freqLabel, cleaned, vmin, vmax, step, isComcast) {
+  const { xlabel, ylabel } = heatmapLayoutForMode(isComcast);
+  const trace = {
+    type: "heatmap",
+    z: cleaned.matrix,
+    x: cleaned.cols,
+    y: cleaned.rows,
+    zmin: vmin, zmax: vmax,
+    zsmooth: "best",
+    colorscale: "Jet",
+    colorbar: step ? { tickmode: "array", tickvals: rangeInclusive(vmin, vmax, step) } : {},
+  };
+  const layout = {
+    title: { text: `${label} - ${pol} - ${freqLabel} MHz`, font: { size: 13 } },
+    xaxis: { title: xlabel, dtick: 15 },
+    yaxis: { title: ylabel, dtick: 15, autorange: "reversed" },
+    paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
+    margin: { l: 60, r: 20, t: 40, b: 45 },
+  };
+  Plotly.newPlot(divId, [trace], layout, { responsive: true, displaylogo: false });
+}
+
+function rangeInclusive(min, max, step) {
+  const out = [];
+  for (let v = min; v <= max + 1e-9; v += step) out.push(Math.round(v * 1000) / 1000);
+  return out;
+}
+
+async function generateHeatmapPanels(workbookBuffer, freq, pol, selAntennas, manualVmin, manualVmax, manualStep, isComcast) {
+  const wb = await loadWorkbook(workbookBuffer);
+  const freqLabel = String(parseInt(freq, 10));
+
+  const panels = [];
+  let vmin = null, vmax = null;
+
+  for (const ant of selAntennas) {
+    const name = `${ant}_${pol}_${freqLabel}`.slice(0, 31);
+    const ws = wb.getWorksheet(name);
+    if (!ws) continue;
+    const { index, columns, matrix } = sheetToMatrix(ws);
+    const cleaned = cleanMatrixForMode(index, columns, matrix, isComcast);
+    const mn = nanminMat(cleaned.matrix), mx = nanmaxMat(cleaned.matrix);
+    vmin = vmin === null ? mn : Math.min(vmin, mn);
+    vmax = vmax === null ? mx : Math.max(vmax, mx);
+    panels.push({ label: ant, cleaned });
+  }
+
+  const corrName = `${pol}_Corr_${freqLabel}`.slice(0, 31);
+  const uncorrName = `${pol}_Uncorr_${freqLabel}`.slice(0, 31);
+  const wsCorr = wb.getWorksheet(corrName);
+  const wsUncorr = wb.getWorksheet(uncorrName);
+  if (!wsCorr || !wsUncorr) throw new Error("找不到對應的 Corr / Uncorr sheet。");
+
+  const corrData = sheetToMatrix(wsCorr);
+  const uncorrData = sheetToMatrix(wsUncorr);
+  const corrCleaned = cleanMatrixForMode(corrData.index, corrData.columns, corrData.matrix, isComcast);
+  const uncorrCleaned = cleanMatrixForMode(uncorrData.index, uncorrData.columns, uncorrData.matrix, isComcast);
+
+  if (manualVmin != null) vmin = manualVmin;
+  if (manualVmax != null) vmax = manualVmax;
+  if (vmin === null) vmin = Math.min(nanminMat(corrCleaned.matrix), nanminMat(uncorrCleaned.matrix));
+  if (vmax === null) vmax = Math.max(nanmaxMat(corrCleaned.matrix), nanmaxMat(uncorrCleaned.matrix));
+  if (vmin >= vmax) vmax = vmin + 1e-6;
+
+  panels.push({ label: "Correlation", cleaned: corrCleaned });
+  panels.push({ label: "Uncorrelation", cleaned: uncorrCleaned });
+
+  return { panels, vmin, vmax, step: manualStep, freqLabel };
+}
+
+function downloadHeatmapPng(divId, filename) {
+  const el = document.getElementById(divId);
+  const w = Math.round(el.offsetWidth) || 600;
+  const h = Math.round(el.offsetHeight) || 380;
+  Plotly.toImage(el, { format: "png", width: w, height: h, scale: 3 }).then(url => {
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+}
+
+// ============================================================
+// 4. Homogenous / MIMO
+// ============================================================
+// Pure math (no ExcelJS), separated out so it can be unit-tested directly.
+function computeHomogenousMask(mat, A) {
+  const M = nanmaxMat(mat);
+  const B = M - A;
+  let hitCount = 0;
+  const mask = mat.map(row => row.map(v => {
+    const hit = Number.isFinite(v) && v >= B;
+    if (hit) hitCount++;
+    return hit ? 1 : 0;
+  }));
+  const hitRate = (hitCount / 325) * 100;
+  return { B, hitRate, mask };
+}
+
+function computeMimoMask(mats, A) {
+  const rows = mats[0].length, cols = mats[0][0].length;
+  let countLeA = 0;
+  const mask = [];
+  for (let r = 0; r < rows; r++) {
+    const maskRow = [];
+    for (let c = 0; c < cols; c++) {
+      const vals = mats.map(m => m[r][c]).sort((a, b) => a - b);
+      const top = vals[vals.length - 1];
+      const second = vals.length > 1 ? vals[vals.length - 2] : 0;
+      const diff = top - second;
+      const hit = diff <= A;
+      if (hit) countLeA++;
+      maskRow.push(hit ? 1 : 0);
+    }
+    mask.push(maskRow);
+  }
+  const hitRate = (countLeA / 325) * 100;
+  return { countLeA, hitRate, mask };
+}
+
+async function homogenousHitmap(comcastBuffer, freq, A) {
+  const wb = await loadWorkbook(comcastBuffer);
+  const sheetName = `Total_Uncorr_${freq}`;
+  const ws = wb.getWorksheet(sheetName);
+  if (!ws) throw new Error(`找不到 sheet：${sheetName}`);
+
+  const { index, columns, matrix } = sheetToMatrix(ws);
+  const cleaned = cleanMatrixForMode(index, columns, matrix, true);
+  const { B, hitRate, mask } = computeHomogenousMask(cleaned.matrix, A);
+
+  return { B, hitRate, mask, cols: cleaned.cols, rows: cleaned.rows };
+}
+
+async function mimoHitmap(comcastBuffer, freq, A) {
+  const wb = await loadWorkbook(comcastBuffer);
+  const sheetNames = [];
+  wb.eachSheet(ws => {
+    const suffix = `_Total_${freq}`;
+    if (ws.name.endsWith(suffix) && !ws.name.includes("_Corr_") && !ws.name.includes("_Uncorr_")) {
+      sheetNames.push(ws.name);
+    }
+  });
+  if (!sheetNames.length) throw new Error(`找不到任何 ANT_Total_${freq} sheet`);
+
+  const mats = [];
+  let cleanedCols = null, cleanedRows = null;
+  for (const name of sheetNames) {
+    const ws = wb.getWorksheet(name);
+    const { index, columns, matrix } = sheetToMatrix(ws);
+    const cleaned = cleanMatrixForMode(index, columns, matrix, true);
+    mats.push(cleaned.matrix);
+    cleanedCols = cleaned.cols; cleanedRows = cleaned.rows;
+  }
+
+  const { countLeA, hitRate, mask } = computeMimoMask(mats, A);
+
+  return { countLeA, hitRate, mask, cols: cleanedCols, rows: cleanedRows };
+}
+
+function renderMaskHeatmap(divId, title, mask, cols, rows) {
+  const trace = {
+    type: "heatmap",
+    z: mask, x: cols, y: rows,
+    zmin: 0, zmax: 1,
+    colorscale: [[0, "#ffffff"], [1, "#ff0000"]],
+    showscale: false,
+  };
+  const layout = {
+    title: { text: title, font: { size: 13 } },
+    xaxis: { title: "Phi Angle (deg)", dtick: 15 },
+    yaxis: { title: "Theta Angle (deg)", dtick: 15, autorange: "reversed" },
+    paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
+    margin: { l: 60, r: 20, t: 55, b: 45 },
+  };
+  Plotly.newPlot(divId, [trace], layout, { responsive: true, displaylogo: false });
+}
+
+// ============================================================
+// UI wiring — Tab 1
+// ============================================================
+let dbBuffer = null, analysisBuffer = null, comcastBuffer = null;
+let dbTablesCache = null;
+
+const csvInput = document.getElementById("csv-input");
+csvInput.addEventListener("change", () => {
+  const names = Array.from(csvInput.files).map(f => f.name);
+  document.getElementById("csv-file-list").textContent = names.length ? "已選擇：" + names.join("、") : "";
+});
+
+document.getElementById("build-db-btn").addEventListener("click", async () => {
+  document.getElementById("db-msg-box").innerHTML = "";
+  document.getElementById("db-download-box").innerHTML = "";
+  try {
+    const files = Array.from(csvInput.files);
+    if (!files.length) throw new Error("請先上傳至少一個 CSV。");
+
+    const fileResults = [];
+    for (const f of files) {
+      const text = await readFileText(f);
+      const antennaName = f.name.split("Table")[0];
+      fileResults.push(parseEtsRawCsv(text, antennaName));
+    }
+    const tables = buildDatabaseTables(fileResults);
+    dbBuffer = await writeObjectsWorkbook(tables);
+    populateTab2UI(tables);
+    showMsg("db-msg-box", `✅ Database 建立完成，共 ${files.length} 個檔案。`, "success");
+
+    const box = document.getElementById("db-download-box");
+    box.innerHTML = `<div class="card result-card"><button class="dl-btn" id="dl-db">⬇️ 下載 Antenna_Polarized_Full_Database.xlsx</button></div>`;
+    document.getElementById("dl-db").addEventListener("click", () => downloadArrayBuffer(dbBuffer, "Antenna_Polarized_Full_Database.xlsx", XLSX_MIME));
+  } catch (err) {
+    showMsg("db-msg-box", "❌ " + err.message, "error");
+  }
+});
+
+// ============================================================
+// UI wiring — Tab 2
+// ============================================================
+function getDatabaseOptionsFromTables(tables) {
+  const base = tables.Total.length ? tables.Total : (tables.Vertical.length ? tables.Vertical : tables.Horizontal);
+  const ants = Array.from(new Set(base.map(r => r.Antenna))).sort();
+  const freqs = Array.from(new Set(base.map(r => Number(r["Frequency(MHz)"])))).filter(Number.isFinite).sort((a, b) => a - b);
+  const pols = ["Vertical", "Horizontal", "Total"].filter(p => tables[p] && tables[p].length);
+  return { ants, pols, freqs };
+}
+
+async function dbTablesFromBuffer(buffer) {
+  const wb = await loadWorkbook(buffer);
+  const tables = { Vertical: [], Horizontal: [], Total: [], Summary: [] };
+  wb.eachSheet(ws => {
+    if (tables[ws.name] !== undefined) tables[ws.name] = sheetToObjects(ws);
+  });
+  return tables;
+}
+
+function fillMultiSelect(selectEl, options, formatFn) {
+  selectEl.innerHTML = options.map(o => `<option value="${o}" selected>${formatFn ? formatFn(o) : o}</option>`).join("");
+}
+
+document.getElementById("db-upload").addEventListener("change", async (e) => {
+  if (!e.target.files.length) return;
+  dbBuffer = await readFileArrayBuffer(e.target.files[0]);
+  await initTab2();
+});
+
+function populateTab2UI(tables) {
+  dbTablesCache = tables;
+  const { ants, pols, freqs } = getDatabaseOptionsFromTables(tables);
+  fillMultiSelect(document.getElementById("filter-ants"), ants);
+  fillMultiSelect(document.getElementById("filter-pols"), pols);
+  fillMultiSelect(document.getElementById("filter-freqs"), freqs, f => String(f));
+  document.getElementById("tab2-filters").hidden = false;
+}
+
+async function initTab2() {
+  try {
+    populateTab2UI(await dbTablesFromBuffer(dbBuffer));
+    showMsg("db-status-box", "✅ Database 已載入。", "success");
+  } catch (err) {
+    showMsg("db-status-box", "❌ " + err.message, "error");
+  }
+}
+
+document.getElementById("build-analysis-btn").addEventListener("click", async () => {
+  document.getElementById("analysis-msg-box").innerHTML = "";
+  document.getElementById("analysis-download-box").innerHTML = "";
+  try {
+    const selAnts = Array.from(document.getElementById("filter-ants").selectedOptions).map(o => o.value);
+    const selPols = Array.from(document.getElementById("filter-pols").selectedOptions).map(o => o.value);
+    const selFreqs = Array.from(document.getElementById("filter-freqs").selectedOptions).map(o => parseFloat(o.value));
+    if (!selAnts.length || !selPols.length || !selFreqs.length) throw new Error("天線、極化、頻率都至少要選一項。");
+
+    const { antennaTables, correlationTables } = prepareAnalysisData(dbTablesCache, selAnts, selPols, selFreqs);
+    analysisBuffer = await writeAnalysisWorkbook(antennaTables, correlationTables);
+    comcastBuffer = await writeComcastWorkbook(analysisBuffer);
+    await initTab3();
+    await initTab4();
+
+    showMsg("analysis-msg-box", "✅ Analysis 與 Comcast Excel 已完成", "success");
+    const box = document.getElementById("analysis-download-box");
+    box.innerHTML = `
+      <div class="card result-card">
+        <button class="dl-btn" id="dl-analysis">⬇️ 下載 Antenna_Analysis_Selected.xlsx</button>
+        <button class="dl-btn" id="dl-comcast">⬇️ 下載 Comcast_Heatmap.xlsx</button>
+      </div>`;
+    document.getElementById("dl-analysis").addEventListener("click", () => downloadArrayBuffer(analysisBuffer, "Antenna_Analysis_Selected.xlsx", XLSX_MIME));
+    document.getElementById("dl-comcast").addEventListener("click", () => downloadArrayBuffer(comcastBuffer, "Comcast_Heatmap.xlsx", XLSX_MIME));
+  } catch (err) {
+    showMsg("analysis-msg-box", "❌ " + err.message, "error");
+  }
+});
+
+// ============================================================
+// UI wiring — Tab 3
+// ============================================================
+document.getElementById("analysis-upload").addEventListener("change", async (e) => {
+  if (!e.target.files.length) return;
+  analysisBuffer = await readFileArrayBuffer(e.target.files[0]);
+  await initTab3();
+});
+document.getElementById("comcast-upload-t3").addEventListener("change", async (e) => {
+  if (!e.target.files.length) return;
+  comcastBuffer = await readFileArrayBuffer(e.target.files[0]);
+});
+
+function getAnalysisOptionsFromWorkbook(wb) {
+  const ants = new Set(), pols = new Set(), freqs = new Set();
+  wb.eachSheet(ws => {
+    const parts = ws.name.split("_");
+    if (parts.length === 3 && /^\d+$/.test(parts[2]) && parts[1] !== "Corr" && parts[1] !== "Uncorr") {
+      ants.add(parts[0]); pols.add(parts[1]); freqs.add(parseInt(parts[2], 10));
+    }
+  });
+  return { ants: Array.from(ants).sort(), pols: Array.from(pols).sort(), freqs: Array.from(freqs).sort((a, b) => a - b) };
+}
+
+async function initTab3() {
+  try {
+    const wb = await loadWorkbook(analysisBuffer);
+    const { ants, pols, freqs } = getAnalysisOptionsFromWorkbook(wb);
+    fillMultiSelect(document.getElementById("hm-ants"), ants);
+    document.getElementById("hm-pol").innerHTML = pols.map(p => `<option value="${p}">${p}</option>`).join("");
+    document.getElementById("hm-freq").innerHTML = freqs.map(f => `<option value="${f}">${f}</option>`).join("");
+    document.getElementById("tab3-controls").hidden = false;
+    showMsg("analysis-status-box", "✅ Analysis Excel 已載入。", "success");
+  } catch (err) {
+    showMsg("analysis-status-box", "❌ " + err.message, "error");
+  }
+}
+
+document.getElementById("gen-heatmap-btn").addEventListener("click", async () => {
+  const resultsEl = document.getElementById("heatmap-results");
+  resultsEl.innerHTML = "";
+  document.getElementById("heatmap-msg-box").innerHTML = "";
+  try {
+    const selAnts = Array.from(document.getElementById("hm-ants").selectedOptions).map(o => o.value);
+    if (!selAnts.length) throw new Error("請至少選一支天線。");
+    const pol = document.getElementById("hm-pol").value;
+    const freq = document.getElementById("hm-freq").value;
+    const mode = document.querySelector('input[name="hm-mode"]:checked').value;
+    const useComcast = mode === "Comcast";
+    if (useComcast && !comcastBuffer) throw new Error("Comcast 模式需要 Comcast_Heatmap.xlsx。請先完成第②步或上傳檔案。");
+
+    const vminEl = document.getElementById("hm-vmin").value.trim();
+    const vmaxEl = document.getElementById("hm-vmax").value.trim();
+    const stepEl = document.getElementById("hm-step").value.trim();
+    const manualVmin = vminEl === "" ? null : parseFloat(vminEl);
+    const manualVmax = vmaxEl === "" ? null : parseFloat(vmaxEl);
+    const manualStep = stepEl === "" ? null : parseFloat(stepEl);
+
+    const srcBuffer = useComcast ? comcastBuffer : analysisBuffer;
+    const { panels, vmin, vmax, step, freqLabel } = await generateHeatmapPanels(srcBuffer, freq, pol, selAnts, manualVmin, manualVmax, manualStep, useComcast);
+
+    const grid = document.createElement("div");
+    grid.className = "heatmap-grid";
+    resultsEl.appendChild(grid);
+
+    const postfix = useComcast ? "Comcast" : "ETS";
+    panels.forEach((p, i) => {
+      const divId = `hm-panel-${i}`;
+      const item = document.createElement("div");
+      item.className = "heatmap-item";
+      const pngName = `${p.label}_${pol}_${freqLabel}MHz_${postfix}.png`;
+      item.innerHTML = `<div class="plot-div" id="${divId}"></div><button class="dl-btn" id="${divId}-dl">⬇️ ${pngName}</button>`;
+      grid.appendChild(item);
+      renderHeatmapPanel(divId, p.label, pol, freqLabel, p.cleaned, vmin, vmax, step, useComcast);
+      document.getElementById(`${divId}-dl`).addEventListener("click", () => downloadHeatmapPng(divId, pngName));
+    });
+
+    showMsg("heatmap-msg-box", "✅ Heatmap 已完成", "success");
+  } catch (err) {
+    showMsg("heatmap-msg-box", "❌ " + err.message, "error");
+  }
+});
+
+// ============================================================
+// UI wiring — Tab 4
+// ============================================================
+document.getElementById("comcast-upload-t4").addEventListener("change", async (e) => {
+  if (!e.target.files.length) return;
+  comcastBuffer = await readFileArrayBuffer(e.target.files[0]);
+  await initTab4();
+});
+
+async function initTab4() {
+  try {
+    const wb = await loadWorkbook(comcastBuffer);
+    const freqs = new Set();
+    wb.eachSheet(ws => {
+      if (ws.name.startsWith("Total_Uncorr_")) {
+        const tail = ws.name.replace("Total_Uncorr_", "");
+        if (/^\d+$/.test(tail)) freqs.add(parseInt(tail, 10));
+      }
+    });
+    const freqList = Array.from(freqs).sort((a, b) => a - b);
+    if (!freqList.length) {
+      showMsg("comcast-status-box", "⚠️ 目前 Comcast 檔內找不到 Total_Uncorr_頻率 sheet。", "info");
+      document.getElementById("tab4-controls").hidden = true;
+      return;
+    }
+    document.getElementById("homo-freq").innerHTML = freqList.map(f => `<option value="${f}">${f}</option>`).join("");
+    document.getElementById("tab4-controls").hidden = false;
+    showMsg("comcast-status-box", "✅ Comcast Excel 已載入。", "success");
+  } catch (err) {
+    showMsg("comcast-status-box", "❌ " + err.message, "error");
+  }
+}
+
+document.getElementById("gen-homo-btn").addEventListener("click", async () => {
+  const resultsEl = document.getElementById("homo-results");
+  resultsEl.innerHTML = "";
+  try {
+    const freq = parseInt(document.getElementById("homo-freq").value, 10);
+    const A = parseFloat(document.getElementById("homo-a").value);
+    const { B, hitRate, mask, cols, rows } = await homogenousHitmap(comcastBuffer, freq, A);
+
+    const card = document.createElement("div");
+    card.className = "card result-card";
+    const divId = "homo-chart";
+    card.innerHTML = `
+      <div class="plot-div" id="${divId}" style="height:380px;"></div>
+      <div class="metric-row">
+        <div class="metric"><div class="label">Hit Rate</div><div class="value">${hitRate.toFixed(1)}%</div></div>
+        <div class="metric"><div class="label">Threshold B</div><div class="value">${B.toFixed(2)} dB</div></div>
+      </div>
+      <button class="dl-btn" id="homo-dl">⬇️ 下載 Homogenous PNG</button>
+    `;
+    resultsEl.appendChild(card);
+    renderMaskHeatmap(divId, `Heatmap @ ${freq}MHz, A=${A}dB → B=${B.toFixed(1)}dB\nHitRate=${hitRate.toFixed(1)}%`, mask, cols, rows);
+    const pngName = `Homogenous_HitRate_${freq}MHz_Max-${A}dB.png`;
+    document.getElementById("homo-dl").addEventListener("click", () => downloadHeatmapPng(divId, pngName));
+  } catch (err) {
+    resultsEl.innerHTML = `<div class="msg error">❌ ${err.message}</div>`;
+  }
+});
+
+document.getElementById("gen-mimo-btn").addEventListener("click", async () => {
+  const resultsEl = document.getElementById("mimo-results");
+  resultsEl.innerHTML = "";
+  try {
+    const freq = parseInt(document.getElementById("homo-freq").value, 10);
+    const A = parseFloat(document.getElementById("mimo-a").value);
+    const { countLeA, hitRate, mask, cols, rows } = await mimoHitmap(comcastBuffer, freq, A);
+
+    const card = document.createElement("div");
+    card.className = "card result-card";
+    const divId = "mimo-chart";
+    card.innerHTML = `
+      <div class="plot-div" id="${divId}" style="height:380px;"></div>
+      <div class="metric-row">
+        <div class="metric"><div class="label">Hit Rate</div><div class="value">${hitRate.toFixed(1)}%</div></div>
+        <div class="metric"><div class="label">&le; A 格數</div><div class="value">${countLeA} / 325</div></div>
+      </div>
+      <button class="dl-btn" id="mimo-dl">⬇️ 下載 MIMO PNG</button>
+    `;
+    resultsEl.appendChild(card);
+    renderMaskHeatmap(divId, `MIMO Heatmap @ ${freq}MHz, A=${A.toFixed(1)}dB  HitRate=${hitRate.toFixed(1)}%`, mask, cols, rows);
+    const pngName = `MIMO_HitRate_${freq}MHz_Threshold_${A}dB.png`;
+    document.getElementById("mimo-dl").addEventListener("click", () => downloadHeatmapPng(divId, pngName));
+  } catch (err) {
+    resultsEl.innerHTML = `<div class="msg error">❌ ${err.message}</div>`;
+  }
+});
+</script>
+</body>
+</html>
