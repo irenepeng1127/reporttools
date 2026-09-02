@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Antenna Analysis Tools</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📡</text></svg>" />
+<style>
+  :root {
+    color-scheme: dark light;
+    --bg: #0e1117;
+    --fg: #fafafa;
+    --muted: #8b949e;
+    --card-bg: rgba(120, 120, 120, 0.07);
+    --card-border: rgba(120, 120, 120, 0.25);
+    --card-border-hover: rgba(120, 120, 120, 0.55);
+    --link-border: rgba(120, 120, 120, 0.35);
+    --link-border-hover: rgba(120, 120, 120, 0.7);
+    --link-hover-bg: rgba(120, 120, 120, 0.1);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #ffffff;
+      --fg: #14171a;
+      --muted: #6b7280;
+      --card-bg: rgba(120, 120, 120, 0.05);
+      --card-border: rgba(120, 120, 120, 0.2);
+      --card-border-hover: rgba(120, 120, 120, 0.45);
+      --link-border: rgba(120, 120, 120, 0.3);
+      --link-border-hover: rgba(120, 120, 120, 0.6);
+      --link-hover-bg: rgba(120, 120, 120, 0.08);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  .wrap {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2.4rem 2rem 3rem;
+  }
+
+  .portal-title {
+    font-size: 2.4rem;
+    font-weight: 800;
+    margin-bottom: 0.2rem;
+    letter-spacing: -0.02em;
+  }
+
+  .portal-subtitle {
+    color: var(--muted);
+    font-size: 1rem;
+    margin-bottom: 1.8rem;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+  }
+
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .tool-card {
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 20px 18px;
+    background: var(--card-bg);
+    transition: transform 0.15s ease, border-color 0.15s ease;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tool-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--card-border-hover);
+  }
+
+  .tool-number {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 0.35rem;
+  }
+
+  .tool-title {
+    font-size: 1.18rem;
+    font-weight: 800;
+    margin-bottom: 0.45rem;
+  }
+
+  .tool-desc {
+    font-size: 0.90rem;
+    line-height: 1.65;
+    color: var(--muted);
+    margin-bottom: 1rem;
+    flex-grow: 1;
+  }
+
+  .tool-link {
+    display: inline-block;
+    padding: 9px 16px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 700;
+    border: 1px solid var(--link-border);
+    color: inherit;
+    align-self: flex-start;
+  }
+
+  .tool-link:hover {
+    border-color: var(--link-border-hover);
+    background: var(--link-hover-bg);
+  }
+
+  .footer-note {
+    margin-top: 1.2rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="portal-title">📡 Antenna Analysis Tools</div>
+    <div class="portal-subtitle">Select the analysis tool you want to use.</div>
+
+    <div class="grid">
+      <div class="tool-card">
+        <div class="tool-number">01</div>
+        <div class="tool-title">Return Loss / VSWR / Isolation</div>
+        <div class="tool-desc">Analyze Return Loss, VSWR, and Isolation data.</div>
+        <a class="tool-link" href="https://rlisolation.streamlit.app/" target="_blank" rel="noopener">Open Tool ↗</a>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-number">02</div>
+        <div class="tool-title">Efficiency &amp; Peak Gain</div>
+        <div class="tool-desc">Plot antenna Efficiency and Peak Gain from total CSV file.</div>
+        <a class="tool-link" href="https://eff-and-gain.streamlit.app/" target="_blank" rel="noopener">Open Tool ↗</a>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-number">03</div>
+        <div class="tool-title">2D Pattern</div>
+        <div class="tool-desc">Display XY / ZX / ZY radiation patterns. Supports single-antenna plots, Corr / Un-Corr, Max / Min / Max-Min.</div>
+        <a class="tool-link" href="https://2d-pattern.streamlit.app/" target="_blank" rel="noopener">Open Tool ↗</a>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-number">04</div>
+        <div class="tool-title">Heatmap</div>
+        <div class="tool-desc">Radiation-pattern heatmaps, Homogenous Heatmap, and MIMO Heatmap results.</div>
+        <a class="tool-link" href="https://antenna-heatmap.streamlit.app/" target="_blank" rel="noopener">Open Tool ↗</a>
+      </div>
+    </div>
+
+    <div class="footer-note">Antenna Analysis Tools Portal</div>
+  </div>
+</body>
+</html>
