@@ -84,6 +84,7 @@
     border: 1px solid var(--input-border); background: var(--input-bg); color: var(--fg); font-size: 0.92rem;
   }
   select { width: 100%; }
+  select option { color: #14171a; background: #ffffff; }
 
   details { border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 14px; margin-top: 4px; }
   details summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
@@ -704,15 +705,15 @@ function buildPlaneTraces(fileData, plane, freq, opts) {
 }
 
 function renderPatternFigure(divId, fileData, freq, opts) {
-  const gap = 0.045;
+  const gap = 0.06;
   const w = (1 - gap * 2) / 3;
   const domains = [[0, w], [w + gap, 2 * w + gap], [2 * (w + gap), 1]];
 
   const layout = {
     paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
     showlegend: true,
-    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.06 },
-    margin: { l: 50, r: 50, t: 30, b: 45 },
+    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.02 },
+    margin: { l: 50, r: 50, t: 22, b: 30 },
     annotations: [],
   };
 
@@ -729,7 +730,7 @@ function renderPatternFigure(divId, fileData, freq, opts) {
     const domain = domains[i];
 
     layout[polarKey] = {
-      domain: { x: domain, y: [0.06, 0.88] },
+      domain: { x: domain, y: [0.03, 0.92] },
       bgcolor: "#ffffff",
       angularaxis: {
         rotation: 90, direction: "clockwise",
@@ -753,7 +754,7 @@ function renderPatternFigure(divId, fileData, freq, opts) {
 
     const cx = (domain[0] + domain[1]) / 2;
     layout.annotations.push({
-      text: `${freq} ${plane} Plane`, x: cx, y: 0.93, xref: "paper", yref: "paper",
+      text: `${freq} ${plane} Plane`, x: cx, y: 0.965, xref: "paper", yref: "paper",
       showarrow: false, font: { size: 13, color: "#1a1a1a" },
     });
 
@@ -764,7 +765,7 @@ function renderPatternFigure(divId, fileData, freq, opts) {
       allTraces.push(t);
     });
 
-    const cy = (0.06 + 0.88) / 2;
+    const cy = (0.03 + 0.92) / 2;
     const dw = domain[1] - domain[0];
     const arrowLen = dw * 0.06;
     const labelMap = { XY: ["Y", "X"], ZX: ["X", "Z"], ZY: ["Y", "Z"] };
@@ -906,7 +907,7 @@ document.getElementById("draw-btn").addEventListener("click", () => {
     card.className = "card result-card";
     card.innerHTML = `
       <h2>Pattern</h2>
-      <div class="plot-div" id="pattern-chart" style="height:620px;"></div>
+      <div class="plot-div" id="pattern-chart" style="height:420px;"></div>
       <button class="dl-btn" id="pattern-dl">下載 Pattern PNG</button>
     `;
     resultsEl.appendChild(card);
