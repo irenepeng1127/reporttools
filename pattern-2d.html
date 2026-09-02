@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>2D Pattern</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+  :root {
+    color-scheme: dark light;
+    --bg: #0e1117;
+    --fg: #fafafa;
+    --muted: #8b949e;
+    --card-bg: rgba(120, 120, 120, 0.07);
+    --card-border: rgba(120, 120, 120, 0.25);
+    --input-bg: rgba(120, 120, 120, 0.08);
+    --input-border: rgba(120, 120, 120, 0.35);
+    --accent: #4f8cff;
+    --accent-fg: #ffffff;
+    --error-bg: rgba(220, 60, 60, 0.12);
+    --error-fg: #ff8080;
+    --success-bg: rgba(60, 180, 100, 0.12);
+    --success-fg: #6fdc9a;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #ffffff;
+      --fg: #14171a;
+      --muted: #6b7280;
+      --card-bg: rgba(120, 120, 120, 0.05);
+      --card-border: rgba(120, 120, 120, 0.2);
+      --input-bg: rgba(120, 120, 120, 0.06);
+      --input-border: rgba(120, 120, 120, 0.3);
+      --error-bg: rgba(220, 60, 60, 0.08);
+      --error-fg: #c92a2a;
+      --success-bg: rgba(60, 180, 100, 0.08);
+      --success-fg: #2b8a3e;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 2rem 1.6rem 4rem; }
+
+  .top-nav { margin-bottom: 1.2rem; }
+  .top-nav a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  .top-nav a:hover { color: var(--fg); }
+
+  h1 { font-size: 1.9rem; font-weight: 800; margin: 0 0 0.2rem; }
+  .caption { color: var(--muted); font-size: 0.92rem; margin-bottom: 1.6rem; }
+
+  .card {
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    background: var(--card-bg);
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 1.05rem; font-weight: 700; margin: 0 0 0.9rem; }
+
+  .check-row { display: flex; flex-wrap: wrap; gap: 14px; }
+  .check-row label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.92rem; cursor: pointer; }
+
+  input[type="file"] {
+    width: 100%; padding: 10px; border-radius: 10px;
+    border: 1px dashed var(--input-border); background: var(--input-bg); color: var(--fg);
+  }
+  .file-list { margin-top: 8px; font-size: 0.85rem; color: var(--muted); }
+
+  .field-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 0.8rem; color: var(--muted); }
+
+  select, input[type="text"], input[type="number"] {
+    padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--input-border); background: var(--input-bg); color: var(--fg); font-size: 0.92rem;
+  }
+  select { width: 100%; }
+
+  details { border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 14px; margin-top: 4px; }
+  details summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+
+  .hint { font-size: 0.8rem; color: var(--muted); margin: 0 0 8px; }
+
+  .run-btn {
+    display: block; width: 100%; padding: 12px; border-radius: 10px;
+    border: none; background: var(--accent); color: var(--accent-fg);
+    font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 4px;
+  }
+  .run-btn:hover { filter: brightness(1.08); }
+  .run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .msg { padding: 10px 14px; border-radius: 10px; font-size: 0.9rem; margin-top: 12px; }
+  .msg.error { background: var(--error-bg); color: var(--error-fg); }
+  .msg.success { background: var(--success-bg); color: var(--success-fg); }
+
+  .result-card { margin-top: 22px; }
+  .result-card h2 { font-size: 1.15rem; }
+
+  .plot-div { width: 100%; height: 560px; }
+
+  .dl-btn {
+    display: inline-block; margin-top: 10px; padding: 8px 14px; border-radius: 8px;
+    border: 1px solid var(--input-border); background: var(--input-bg); color: var(--fg);
+    font-size: 0.85rem; font-weight: 600; cursor: pointer; text-decoration: none; margin-right: 8px;
+  }
+  .dl-btn:hover { border-color: var(--accent); }
+
+  table.stats-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 10px; }
+  table.stats-table th, table.stats-table td {
+    text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--card-border);
+  }
+  table.stats-table th { color: var(--muted); font-weight: 600; }
+
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-nav"><a href="./index.html">&larr; 回入口頁</a></div>
+  <h1>📡 2D Pattern</h1>
+  <div class="caption">支援多個 3cut CSV / EMQ，或直接載入已整合 CSV。頻率單位為 MHz。（純前端運算，資料不會上傳到任何伺服器）</div>
+
+  <div class="card">
+    <h2>1. 上傳檔案</h2>
+    <input type="file" id="file-input" accept=".csv,.emq" multiple />
+    <div class="file-list" id="file-list"></div>
+    <button class="run-btn" id="load-btn" style="margin-top:12px;">載入檔案</button>
+    <div id="load-msg-box"></div>
+  </div>
+
+  <div id="config-section" hidden>
+    <div class="card">
+      <h2>2. 頻率</h2>
+      <select id="freq-select"></select>
+    </div>
+
+    <div class="card">
+      <h2>3. 顯示內容</h2>
+      <div class="check-row">
+        <label><input type="checkbox" id="show-single" checked> 單天線</label>
+        <label><input type="checkbox" id="show-uncorr"> Un-Corr</label>
+        <label><input type="checkbox" id="show-corr"> Corr</label>
+        <label><input type="checkbox" id="show-max"> Max</label>
+        <label><input type="checkbox" id="show-min"> Min</label>
+        <label><input type="checkbox" id="show-range"> Max-min</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>4. Scale</h2>
+      <details>
+        <summary>自訂 Scale（選填）</summary>
+        <div class="field-grid" style="margin-top:10px;">
+          <div class="field"><label>上限 Max (dBi)</label><input type="number" id="ylim-max" value="5" step="1"></div>
+          <div class="field"><label>下限 Min (dBi)</label><input type="number" id="ylim-min" value="-40" step="1"></div>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>5. 進階設定</h2>
+      <details>
+        <summary>展開進階設定</summary>
+        <div class="hint" style="margin-top:10px;">只有勾選對應曲線時，虛線設定才會套用（勾選虛線也會自動顯示該曲線）。</div>
+        <div class="check-row">
+          <label><input type="checkbox" id="uncorr-dash"> Un-Corr 虛線</label>
+          <label><input type="checkbox" id="corr-dash"> Corr 虛線</label>
+          <label><input type="checkbox" id="max-dash"> Max 虛線</label>
+          <label><input type="checkbox" id="min-dash"> Min 虛線</label>
+          <label><input type="checkbox" id="range-dash"> Max-min 虛線</label>
+        </div>
+      </details>
+    </div>
+
+    <button class="run-btn" id="draw-btn">繪製 2D Pattern</button>
+    <div id="msg-box"></div>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<script>
+const PLANES = ["XY", "ZX", "ZY"];
+const KEYWORDS = { XY: "cut1", ZX: "cut2", ZY: "cut3" };
+const COLORS = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"];
+const BASE_COLS = ["Plane", "Freq(MHz)", "Angle(deg)", "Un-Correlation(dB)", "Correlation(dB)"];
+
+// ---------- Math helpers ----------
+function nanmean(arr) {
+  let sum = 0, count = 0;
+  for (const v of arr) if (Number.isFinite(v)) { sum += v; count++; }
+  return count > 0 ? sum / count : NaN;
+}
+function nansum(arr) {
+  let sum = 0;
+  for (const v of arr) if (Number.isFinite(v)) sum += v;
+  return sum;
+}
+function nanmax(arr) {
+  let m = -Infinity, any = false;
+  for (const v of arr) if (Number.isFinite(v)) { any = true; if (v > m) m = v; }
+  return any ? m : NaN;
+}
+function nanmin(arr) {
+  let m = Infinity, any = false;
+  for (const v of arr) if (Number.isFinite(v)) { any = true; if (v < m) m = v; }
+  return any ? m : NaN;
+}
+
+// ---------- Cubic spline (not-a-knot), verified against scipy.interpolate.CubicSpline ----------
+function solveLinearSystem(A, B) {
+  const n = B.length;
+  const M = A.map(row => row.slice());
+  const b = B.slice();
+  for (let col = 0; col < n; col++) {
+    let piv = col;
+    let maxVal = Math.abs(M[col][col]);
+    for (let r = col + 1; r < n; r++) {
+      if (Math.abs(M[r][col]) > maxVal) { maxVal = Math.abs(M[r][col]); piv = r; }
+    }
+    if (piv !== col) {
+      const tmpRow = M[col]; M[col] = M[piv]; M[piv] = tmpRow;
+      const tmpB = b[col]; b[col] = b[piv]; b[piv] = tmpB;
+    }
+    const pivotVal = M[col][col];
+    for (let r = col + 1; r < n; r++) {
+      const factor = M[r][col] / pivotVal;
+      if (factor === 0) continue;
+      for (let c = col; c < n; c++) M[r][c] -= factor * M[col][c];
+      b[r] -= factor * b[col];
+    }
+  }
+  const x = new Array(n).fill(0);
+  for (let r = n - 1; r >= 0; r--) {
+    let sum = b[r];
+    for (let c = r + 1; c < n; c++) sum -= M[r][c] * x[c];
+    x[r] = sum / M[r][r];
+  }
+  return x;
+}
+
+function cubicSplineNotAKnot(x, y) {
+  const n = x.length - 1;
+  const h = [];
+  for (let i = 0; i < n; i++) h.push(x[i + 1] - x[i]);
+  const A = Array.from({ length: n + 1 }, () => new Array(n + 1).fill(0));
+  const B = new Array(n + 1).fill(0);
+  A[0][0] = h[1]; A[0][1] = -(h[0] + h[1]); A[0][2] = h[0]; B[0] = 0;
+  for (let i = 1; i < n; i++) {
+    A[i][i - 1] = h[i - 1]; A[i][i] = 2 * (h[i - 1] + h[i]); A[i][i + 1] = h[i];
+    B[i] = 3 * ((y[i + 1] - y[i]) / h[i] - (y[i] - y[i - 1]) / h[i - 1]);
+  }
+  A[n][n - 2] = h[n - 1]; A[n][n - 1] = -(h[n - 2] + h[n - 1]); A[n][n] = h[n - 2]; B[n] = 0;
+  const c = solveLinearSystem(A, B);
+  const b = new Array(n), d = new Array(n);
+  for (let i = 0; i < n; i++) {
+    b[i] = (y[i + 1] - y[i]) / h[i] - h[i] * (2 * c[i] + c[i + 1]) / 3;
+    d[i] = (c[i + 1] - c[i]) / (3 * h[i]);
+  }
+  return function evaluate(xq) {
+    if (xq <= x[0]) {
+      const dx = xq - x[0];
+      return y[0] + b[0] * dx + c[0] * dx * dx + d[0] * dx * dx * dx;
+    }
+    if (xq >= x[n]) {
+      const dx = xq - x[n - 1];
+      return y[n - 1] + b[n - 1] * dx + c[n - 1] * dx * dx + d[n - 1] * dx * dx * dx;
+    }
+    let lo = 0, hi = n - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (x[mid] <= xq) lo = mid; else hi = mid - 1;
+    }
+    const i = lo, dx = xq - x[i];
+    return y[i] + b[i] * dx + c[i] * dx * dx + d[i] * dx * dx * dx;
+  };
+}
+
+function linInterpClamped(xq, xs, ys) {
+  const n = xs.length;
+  if (xq <= xs[0]) return ys[0];
+  if (xq >= xs[n - 1]) return ys[n - 1];
+  let lo = 0, hi = n - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (xs[mid] <= xq) lo = mid; else hi = mid - 1;
+  }
+  const i = lo;
+  const t = (xq - xs[i]) / (xs[i + 1] - xs[i]);
+  return ys[i] + t * (ys[i + 1] - ys[i]);
+}
+
+function interpolateToStep(anglesDeg, values, stepDeg) {
+  stepDeg = stepDeg || 1.0;
+  if (anglesDeg.length < 2) return { angles: anglesDeg.slice(), values: values.slice() };
+
+  const anglesMod = anglesDeg.map(a => ((a % 360) + 360) % 360);
+
+  const groups = new Map();
+  for (let i = 0; i < anglesMod.length; i++) {
+    const a = anglesMod[i];
+    if (!groups.has(a)) groups.set(a, []);
+    groups.get(a).push(values[i]);
+  }
+  const uniqueAngles = Array.from(groups.keys()).sort((p, q) => p - q);
+  const uniqueVals = uniqueAngles.map(a => {
+    const arr = groups.get(a);
+    return arr.reduce((s, v) => s + v, 0) / arr.length;
+  });
+
+  const newAngles = [];
+  for (let a = 0; a < 360; a += stepDeg) newAngles.push(a);
+
+  if (uniqueAngles.length < 4) {
+    const anglesExt = uniqueAngles.concat([uniqueAngles[0] + 360]);
+    const valsExt = uniqueVals.concat([uniqueVals[0]]);
+    const newVals = newAngles.map(a => linInterpClamped(a, anglesExt, valsExt));
+    return { angles: newAngles, values: newVals };
+  }
+
+  const last3 = uniqueAngles.slice(-3).map(a => a - 360);
+  const first3 = uniqueAngles.slice(0, 3).map(a => a + 360);
+  let anglesExt = last3.concat(uniqueAngles, first3);
+  const valsExt = uniqueVals.slice(-3).concat(uniqueVals, uniqueVals.slice(0, 3));
+
+  let hasNonIncreasing = false;
+  for (let i = 1; i < anglesExt.length; i++) {
+    if (anglesExt[i] - anglesExt[i - 1] <= 0) { hasNonIncreasing = true; break; }
+  }
+  if (hasNonIncreasing) {
+    const eps = 1e-9;
+    anglesExt = anglesExt.map((a, i) => a + i * eps);
+  }
+
+  const spline = cubicSplineNotAKnot(anglesExt, valsExt);
+  const newVals = newAngles.map(a => spline(a));
+  return { angles: newAngles, values: newVals };
+}
+
+// ---------- File parsing ----------
+function stripExt(name) {
+  const base = String(name).split(/[\\/]/).pop();
+  const idx = base.lastIndexOf(".");
+  return idx > 0 ? base.slice(0, idx) : base;
+}
+
+function readFileText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => {
+      const buf = reader.result;
+      let text = new TextDecoder("utf-8", { fatal: false }).decode(buf);
+      if (text.includes("�")) {
+        try { text = new TextDecoder("iso-8859-1").decode(buf); } catch (e) {}
+      }
+      resolve(text);
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = "", inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; } else inQuotes = false;
+      } else cur += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ",") { result.push(cur); cur = ""; }
+      else cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+function splitCsvLines(text) {
+  return text.split(/\r\n|\n|\r/).map(line => (line.length === 0 ? [] : parseCSVLine(line)));
+}
+
+function parseCSVFromLine0(text) {
+  const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
+  const table = lines.map(parseCSVLine);
+  const headers = table[0].map(h => h.trim());
+  return { headers, rows: table.slice(1) };
+}
+
+function parseRaw3Cut(text, filename) {
+  const lines = splitCsvLines(text);
+  const planes = {};
+
+  for (const pname of PLANES) {
+    const key = KEYWORDS[pname];
+    let cutIdx = null;
+    for (let i = 0; i < lines.length; i++) {
+      const row = lines[i];
+      if (row.length && row[0].trim().toLowerCase().includes(key.toLowerCase())) { cutIdx = i; break; }
+    }
+    if (cutIdx === null) continue;
+
+    let totalIdx = null;
+    for (let i = cutIdx + 1; i < lines.length; i++) {
+      const row = lines[i];
+      if (row.length > 1 && row[1].trim().toLowerCase().includes("total")) { totalIdx = i; break; }
+    }
+    if (totalIdx === null) continue;
+
+    const hdr = lines[totalIdx];
+    const freqs = hdr.slice(3).map(c => c.trim()).filter(c => c.length > 0);
+
+    const angles = [];
+    const values = {};
+    freqs.forEach(f => { values[f] = []; });
+
+    for (let r = totalIdx + 1; r < lines.length; r++) {
+      const row = lines[r];
+      if (row.length < 3 || !row[2].trim()) break;
+
+      const ang = parseFloat(row[2]);
+      if (!Number.isFinite(ang)) continue;
+
+      angles.push(ang);
+      freqs.forEach((f, j) => {
+        const idx = 3 + j;
+        const cell = idx < row.length ? row[idx].trim() : "";
+        const v = parseFloat(cell);
+        values[f].push(Number.isFinite(v) ? v : NaN);
+      });
+    }
+
+    if (angles.length && freqs.every(f => values[f].length === angles.length)) {
+      planes[pname] = { freqs, angles, values };
+    }
+  }
+
+  if (Object.keys(planes).length === 0) {
+    throw new Error(`${filename} 找不到 cut1 / cut2 / cut3 Total 資料。`);
+  }
+
+  return { name: stripExt(filename), planes };
+}
+
+function isCombinedCsvHeaders(headers) {
+  return ["Plane", "Freq(MHz)", "Angle(deg)"].every(c => headers.includes(c));
+}
+
+function rebuildFileDataFromMerged(headers, rows) {
+  const renameMap = {};
+  headers.forEach(h => {
+    if (/\.(csv|emq)$/i.test(h)) renameMap[h] = stripExt(h);
+  });
+  const colNames = headers.map(h => renameMap[h] || h);
+  const idxOf = {};
+  colNames.forEach((c, i) => { if (!(c in idxOf)) idxOf[c] = i; });
+
+  const fileCols = colNames.filter(c => !BASE_COLS.includes(c));
+
+  const table = rows.map(r => {
+    const o = {};
+    colNames.forEach((c, i) => { o[c] = r[i]; });
+    return o;
+  });
+
+  const fileData = [];
+  for (const fcol of fileCols) {
+    const planes = {};
+    for (const pname of PLANES) {
+      const pRows = table.filter(o => o["Plane"] === pname);
+      if (!pRows.length) continue;
+
+      const freqSet = new Map();
+      const angleSet = new Map();
+      pRows.forEach(o => {
+        const f = parseFloat(o["Freq(MHz)"]);
+        const a = parseFloat(o["Angle(deg)"]);
+        if (Number.isFinite(f)) freqSet.set(f, true);
+        if (Number.isFinite(a)) angleSet.set(a, true);
+      });
+      const freqs = Array.from(freqSet.keys()).sort((a, b) => a - b);
+      const angles = Array.from(angleSet.keys()).sort((a, b) => a - b);
+
+      const lookup = new Map();
+      pRows.forEach(o => {
+        const f = parseFloat(o["Freq(MHz)"]);
+        const a = parseFloat(o["Angle(deg)"]);
+        lookup.set(f + "|" + a, parseFloat(o[fcol]));
+      });
+
+      const valuesMap = {};
+      freqs.forEach(f => {
+        valuesMap[String(f)] = angles.map(a => {
+          const v = lookup.get(f + "|" + a);
+          return v === undefined ? NaN : v;
+        });
+      });
+
+      planes[pname] = { freqs: freqs.map(String), angles, values: valuesMap };
+    }
+    fileData.push({ name: fcol, planes });
+  }
+  return fileData;
+}
+
+// ---------- Combined table / common freqs ----------
+function getCommonFreqs(fileData) {
+  const allSets = [];
+  fileData.forEach(fd => {
+    Object.values(fd.planes).forEach(p => {
+      allSets.push(new Set(p.freqs.map(String)));
+    });
+  });
+  if (!allSets.length) return [];
+
+  let common = allSets[0];
+  for (let i = 1; i < allSets.length; i++) {
+    common = new Set(Array.from(common).filter(x => allSets[i].has(x)));
+  }
+  if (common.size === 0) {
+    common = new Set();
+    allSets.forEach(s => s.forEach(x => common.add(x)));
+  }
+  return Array.from(common).sort((a, b) => parseFloat(a) - parseFloat(b));
+}
+
+function getValsForFreq(planeObj, freq) {
+  if (!planeObj) return null;
+  const values = planeObj.values || {};
+  if (values[String(freq)] !== undefined) return values[String(freq)];
+  const target = parseFloat(freq);
+  for (const k of Object.keys(values)) {
+    if (parseFloat(k) === target) return values[k];
+  }
+  return null;
+}
+
+function buildMergedDataframe(fileData, freqList) {
+  const records = [];
+  const fileNames = fileData.map(fd => fd.name);
+  if (!fileData.length) return { columns: [], records: [] };
+
+  for (const planeName of PLANES) {
+    const firstPlane = fileData[0].planes[planeName];
+    if (!firstPlane) continue;
+    const angles = firstPlane.angles.map(Number);
+
+    for (const freq of freqList) {
+      const valuesMat = fileData.map(fd => {
+        const vals = getValsForFreq(fd.planes[planeName], freq);
+        return vals || new Array(angles.length).fill(NaN);
+      });
+
+      const uncor = new Array(angles.length);
+      const corr = new Array(angles.length);
+      for (let a = 0; a < angles.length; a++) {
+        const linPow = valuesMat.map(row => Math.pow(10, row[a] / 10));
+        uncor[a] = 10 * Math.log10(nanmean(linPow));
+        const linAmp = valuesMat.map(row => Math.pow(10, row[a] / 20));
+        const s = nansum(linAmp);
+        corr[a] = 10 * Math.log10((s * s) / fileData.length);
+      }
+
+      angles.forEach((ang, idx) => {
+        const row = {
+          Plane: planeName,
+          "Freq(MHz)": parseFloat(freq),
+          "Angle(deg)": ang,
+          "Un-Correlation(dB)": uncor[idx],
+          "Correlation(dB)": corr[idx],
+        };
+        fileNames.forEach((fn, i) => { row[fn] = valuesMat[i][idx]; });
+        records.push(row);
+      });
+    }
+  }
+
+  records.sort((a, b) =>
+    a.Plane.localeCompare(b.Plane) ||
+    a["Freq(MHz)"] - b["Freq(MHz)"] ||
+    a["Angle(deg)"] - b["Angle(deg)"]
+  );
+
+  return { columns: [...BASE_COLS, ...fileNames], records };
+}
+
+function downloadCombinedCsv(merged, filename) {
+  const lines = [merged.columns.join(",")];
+  merged.records.forEach(row => {
+    lines.push(merged.columns.map(c => {
+      const v = row[c];
+      if (v === undefined || v === null) return "";
+      if (typeof v === "number") return Number.isFinite(v) ? String(v) : "";
+      return v;
+    }).join(","));
+  });
+  const csv = "﻿" + lines.join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ---------- Stats table ----------
+function buildStatsTable(fileData, freq) {
+  const rows = [];
+  for (const plane of PLANES) {
+    for (const fd of fileData) {
+      const vals = getValsForFreq(fd.planes[plane], freq);
+      if (!vals) continue;
+      const valid = vals.filter(v => Number.isFinite(v));
+      if (!valid.length) continue;
+      const mx = Math.max(...valid), mn = Math.min(...valid);
+      rows.push({ Plane: plane, Antenna: fd.name, max: mx, min: mn, range: mx - mn });
+    }
+  }
+  return rows;
+}
+
+// ---------- Pattern figure ----------
+function buildPlaneTraces(fileData, plane, freq, opts) {
+  const angles = (fileData[0].planes[plane] || {}).angles || [];
+  if (!angles.length) return { traces: [], fineAngles: null };
+
+  let fineAngles = null;
+  const seriesInterp = [];
+  for (const fd of fileData) {
+    const vals = getValsForFreq(fd.planes[plane], freq);
+    if (!vals) { seriesInterp.push(null); continue; }
+    const result = interpolateToStep(angles, vals, 1.0);
+    fineAngles = result.angles;
+    seriesInterp.push(result.values);
+  }
+
+  if (!fineAngles) return { traces: [], fineAngles: null };
+
+  const traces = [];
+  const seriesAsArrays = seriesInterp.map(v => v || new Array(fineAngles.length).fill(NaN));
+
+  function pushClosed(values, name, dashed, colorOverride, colorIdx) {
+    const closedAngles = fineAngles.concat([fineAngles[0]]);
+    const closedVals = values.concat([values[0]]);
+    traces.push({
+      type: "scatterpolar", mode: "lines",
+      theta: closedAngles, r: closedVals,
+      name, legendgroup: name,
+      line: { dash: dashed ? "dash" : "solid", width: 2, color: colorOverride },
+      showlegend: true,
+      subplot: opts.polarKey,
+    });
+  }
+
+  if (opts.showSingle) {
+    fileData.forEach((fd, i) => {
+      if (seriesInterp[i] == null) return;
+      pushClosed(seriesInterp[i], fd.name, false, COLORS[i % COLORS.length]);
+    });
+  }
+
+  if (opts.showUncorr || opts.uncorrDash) {
+    const uncor = fineAngles.map((_, a) => {
+      const linPow = seriesAsArrays.map(row => Math.pow(10, row[a] / 10));
+      return 10 * Math.log10(nanmean(linPow));
+    });
+    pushClosed(uncor, "Un-Corr", opts.uncorrDash, "#444444");
+  }
+
+  if (opts.showCorr || opts.corrDash) {
+    const corr = fineAngles.map((_, a) => {
+      const linAmp = seriesAsArrays.map(row => Math.pow(10, row[a] / 20));
+      const s = nansum(linAmp);
+      return 10 * Math.log10((s * s) / fileData.length);
+    });
+    pushClosed(corr, "Corr", opts.corrDash, "#996600");
+  }
+
+  if (opts.showMax || opts.maxDash || opts.showMin || opts.minDash || opts.showRange || opts.rangeDash) {
+    const mxEnv = fineAngles.map((_, a) => nanmax(seriesAsArrays.map(row => row[a])));
+    const mnEnv = fineAngles.map((_, a) => nanmin(seriesAsArrays.map(row => row[a])));
+
+    if (opts.showMax || opts.maxDash) pushClosed(mxEnv, "Max", opts.maxDash, "#cc0000");
+    if (opts.showMin || opts.minDash) pushClosed(mnEnv, "Min", opts.minDash, "#0055cc");
+    if (opts.showRange || opts.rangeDash) {
+      const rg = mxEnv.map((v, i) => v - mnEnv[i]);
+      pushClosed(rg, "Max-min", opts.rangeDash, "#009966");
+    }
+  }
+
+  return { traces, fineAngles };
+}
+
+function renderPatternFigure(divId, fileData, freq, opts) {
+  const gap = 0.045;
+  const w = (1 - gap * 2) / 3;
+  const domains = [[0, w], [w + gap, 2 * w + gap], [2 * (w + gap), 1]];
+
+  const layout = {
+    paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
+    showlegend: true,
+    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.12 },
+    margin: { l: 10, r: 10, t: 55, b: 70 },
+    annotations: [],
+  };
+
+  const allTraces = [];
+  const legendedNames = new Set();
+  const radialTicks = [];
+  const nTicks = 10;
+  for (let i = 0; i < nTicks; i++) {
+    radialTicks.push(opts.ylimMin + (opts.ylimMax - opts.ylimMin) * i / (nTicks - 1));
+  }
+
+  PLANES.forEach((plane, i) => {
+    const polarKey = i === 0 ? "polar" : "polar" + (i + 1);
+    const domain = domains[i];
+
+    layout[polarKey] = {
+      domain: { x: domain, y: [0.06, 0.92] },
+      bgcolor: "#ffffff",
+      angularaxis: {
+        rotation: 90, direction: "clockwise",
+        tickmode: "array",
+        tickvals: Array.from({ length: 24 }, (_, k) => k * 15),
+        ticktext: Array.from({ length: 24 }, (_, k) => String(k * 15)),
+        tickfont: { size: 9 },
+        gridcolor: "rgba(0,0,0,0.2)", linecolor: "#333",
+      },
+      radialaxis: {
+        range: [opts.ylimMin, opts.ylimMax],
+        tickmode: "array",
+        tickvals: radialTicks,
+        ticktext: radialTicks.map(v => v.toFixed(0)),
+        tickfont: { size: 8 },
+        angle: 90,
+        gridcolor: "rgba(0,0,0,0.2)", linecolor: "#333",
+      },
+    };
+
+    const cx = (domain[0] + domain[1]) / 2;
+    layout.annotations.push({
+      text: `${freq} ${plane} Plane`, x: cx, y: 1.0, xref: "paper", yref: "paper",
+      showarrow: false, font: { size: 13, color: "#1a1a1a" },
+    });
+
+    const { traces } = buildPlaneTraces(fileData, plane, freq, { ...opts, polarKey });
+    traces.forEach(t => {
+      if (legendedNames.has(t.name)) t.showlegend = false;
+      else legendedNames.add(t.name);
+      allTraces.push(t);
+    });
+
+    const dw = domain[1] - domain[0];
+    const arrowLen = dw * 0.06;
+    const labelMap = { XY: ["Y", "X"], ZX: ["X", "Z"], ZY: ["Y", "Z"] };
+    const [rightLabel, upLabel] = labelMap[plane];
+    layout.annotations.push(
+      { x: cx + arrowLen, y: 0.49, ax: cx, ay: 0.49, xref: "paper", yref: "paper", axref: "paper", ayref: "paper",
+        showarrow: true, arrowhead: 2, arrowsize: 1, arrowwidth: 1.2, text: "" },
+      { text: rightLabel, x: cx + arrowLen + 0.01, y: 0.49, xref: "paper", yref: "paper", showarrow: false, font: { size: 11 }, xanchor: "left" },
+      { x: cx, y: 0.49 + arrowLen, ax: cx, ay: 0.49, xref: "paper", yref: "paper", axref: "paper", ayref: "paper",
+        showarrow: true, arrowhead: 2, arrowsize: 1, arrowwidth: 1.2, text: "" },
+      { text: upLabel, x: cx, y: 0.49 + arrowLen + 0.02, xref: "paper", yref: "paper", showarrow: false, font: { size: 11 }, yanchor: "bottom" }
+    );
+  });
+
+  Plotly.newPlot(divId, allTraces, layout, { responsive: true, displaylogo: false });
+}
+
+function downloadPng(divId, filename) {
+  const el = document.getElementById(divId);
+  const w = Math.round(el.offsetWidth) || 1200;
+  const h = Math.round(el.offsetHeight) || 560;
+  Plotly.toImage(el, { format: "png", width: w, height: h, scale: 3 }).then(url => {
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+}
+
+// ---------- UI wiring ----------
+const fileInput = document.getElementById("file-input");
+const fileListEl = document.getElementById("file-list");
+fileInput.addEventListener("change", () => {
+  const names = Array.from(fileInput.files).map(f => f.name);
+  fileListEl.textContent = names.length ? "已選擇：" + names.join("、") : "";
+});
+
+function showMsg(boxId, text, type) {
+  document.getElementById(boxId).innerHTML = `<div class="msg ${type}">${text}</div>`;
+}
+
+let currentFileData = null;
+let currentMerged = null;
+
+document.getElementById("load-btn").addEventListener("click", async () => {
+  document.getElementById("load-msg-box").innerHTML = "";
+  document.getElementById("config-section").hidden = true;
+  document.getElementById("results").innerHTML = "";
+
+  try {
+    const files = Array.from(fileInput.files);
+    if (!files.length) throw new Error("請先選擇檔案。");
+
+    let fileData = null;
+    let merged = null;
+    let warnings = [];
+
+    if (files.length === 1 && files[0].name.toLowerCase().endsWith(".csv")) {
+      const text = await readFileText(files[0]);
+      const { headers, rows } = parseCSVFromLine0(text);
+      if (isCombinedCsvHeaders(headers)) {
+        fileData = rebuildFileDataFromMerged(headers, rows);
+        const numHeaders = headers.map(h => (/\.(csv|emq)$/i.test(h) ? stripExt(h) : h));
+        const fileCols = numHeaders.filter(c => !BASE_COLS.includes(c));
+        merged = { columns: [...BASE_COLS, ...fileCols], records: rows.map(r => {
+          const o = {};
+          numHeaders.forEach((c, i) => {
+            if (BASE_COLS.slice(1).includes(c)) o[c] = parseFloat(r[i]);
+            else o[c] = c === "Plane" ? r[i] : parseFloat(r[i]);
+          });
+          return o;
+        }) };
+      }
+    }
+
+    if (fileData === null) {
+      fileData = [];
+      for (const f of files) {
+        const text = await readFileText(f);
+        try {
+          fileData.push(parseRaw3Cut(text, f.name));
+        } catch (e) {
+          warnings.push(e.message);
+        }
+      }
+      if (!fileData.length) throw new Error("沒有成功讀取任何 3cut 檔案。");
+      const freqs = getCommonFreqs(fileData);
+      merged = buildMergedDataframe(fileData, freqs);
+    }
+
+    const freqs = getCommonFreqs(fileData);
+    if (!freqs.length) throw new Error("找不到共同的頻率。");
+
+    currentFileData = fileData;
+    currentMerged = merged;
+
+    const freqSelect = document.getElementById("freq-select");
+    freqSelect.innerHTML = freqs.map(f => `<option value="${f}">${f} MHz</option>`).join("");
+
+    document.getElementById("config-section").hidden = false;
+    const successMsg = `載入完成，共 ${fileData.length} 組資料。`;
+    const msgHtml = warnings.length
+      ? warnings.map(w => `<div class="msg error">${w}</div>`).join("") + `<div class="msg success">${successMsg}</div>`
+      : `<div class="msg success">${successMsg}</div>`;
+    document.getElementById("load-msg-box").innerHTML = msgHtml;
+  } catch (err) {
+    showMsg("load-msg-box", "載入失敗：" + err.message, "error");
+  }
+});
+
+document.getElementById("draw-btn").addEventListener("click", () => {
+  const resultsEl = document.getElementById("results");
+  resultsEl.innerHTML = "";
+  document.getElementById("msg-box").innerHTML = "";
+
+  try {
+    if (!currentFileData) throw new Error("請先載入檔案。");
+
+    const freq = document.getElementById("freq-select").value;
+    const ylimMax = parseFloat(document.getElementById("ylim-max").value);
+    const ylimMin = parseFloat(document.getElementById("ylim-min").value);
+    if (!(ylimMax > ylimMin)) throw new Error("Scale 上限必須大於下限。");
+
+    const opts = {
+      showSingle: document.getElementById("show-single").checked,
+      showUncorr: document.getElementById("show-uncorr").checked,
+      showCorr: document.getElementById("show-corr").checked,
+      showMax: document.getElementById("show-max").checked,
+      showMin: document.getElementById("show-min").checked,
+      showRange: document.getElementById("show-range").checked,
+      uncorrDash: document.getElementById("uncorr-dash").checked,
+      corrDash: document.getElementById("corr-dash").checked,
+      maxDash: document.getElementById("max-dash").checked,
+      minDash: document.getElementById("min-dash").checked,
+      rangeDash: document.getElementById("range-dash").checked,
+      ylimMin, ylimMax,
+    };
+
+    const card = document.createElement("div");
+    card.className = "card result-card";
+    card.innerHTML = `
+      <h2>Pattern</h2>
+      <div class="plot-div" id="pattern-chart" style="height:620px;"></div>
+      <button class="dl-btn" id="pattern-dl">下載 Pattern PNG</button>
+    `;
+    resultsEl.appendChild(card);
+    renderPatternFigure("pattern-chart", currentFileData, freq, opts);
+    document.getElementById("pattern-dl").addEventListener("click", () => downloadPng("pattern-chart", "2D_pattern.png"));
+
+    const statsRows = buildStatsTable(currentFileData, freq);
+    if (statsRows.length) {
+      const statsCard = document.createElement("div");
+      statsCard.className = "card result-card";
+      const tableRows = statsRows.map(r =>
+        `<tr><td>${r.Plane}</td><td>${r.Antenna}</td><td>${r.max.toFixed(2)}</td><td>${r.min.toFixed(2)}</td><td>${r.range.toFixed(2)}</td></tr>`
+      ).join("");
+      statsCard.innerHTML = `
+        <details>
+          <summary style="font-size:1.05rem;font-weight:700;">單天線數據表</summary>
+          <table class="stats-table">
+            <thead><tr><th>Plane</th><th>Antenna</th><th>Max (dBi)</th><th>Min (dBi)</th><th>Max-Min (dB)</th></tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </details>
+      `;
+      resultsEl.appendChild(statsCard);
+    }
+
+    if (currentMerged && currentMerged.records.length) {
+      const csvCard = document.createElement("div");
+      csvCard.className = "card result-card";
+      csvCard.innerHTML = `<h2>整合 CSV</h2><button class="dl-btn" id="dl-combined">下載 Combined CSV</button>`;
+      resultsEl.appendChild(csvCard);
+      document.getElementById("dl-combined").addEventListener("click", () => downloadCombinedCsv(currentMerged, "2D_pattern_combined.csv"));
+    }
+
+    showMsg("msg-box", "繪圖完成。", "success");
+  } catch (err) {
+    showMsg("msg-box", "繪圖失敗：" + err.message, "error");
+  }
+});
+</script>
+</body>
+</html>
