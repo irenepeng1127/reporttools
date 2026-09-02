@@ -129,6 +129,17 @@
 
   .plot-div { width: 100%; height: 500px; }
 
+  .panel-scroll {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+
+  .panel-item { flex: 0 0 auto; }
+  .panel-item .plot-div { width: 560px; height: 300px; }
+  .panel-item .panel-dl { display: block; margin-top: 6px; }
+
   .dl-btn {
     display: inline-block; margin-top: 10px; padding: 8px 14px; border-radius: 8px;
     border: 1px solid var(--input-border); background: var(--input-bg); color: var(--fg);
@@ -166,7 +177,19 @@
   </div>
 
   <div class="card">
-    <h2>3. 顯示內容</h2>
+    <h2>3. 頻率範圍 (MHz)</h2>
+    <div class="field-grid">
+      <div class="field"><label>Start (MHz)</label><input type="number" id="fstart" value="600" step="1"></div>
+      <div class="field"><label>End (MHz)</label><input type="number" id="fend" value="7200" step="1"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;margin-top:12px;">
+      <input type="checkbox" id="merge-chart">
+      併圖（合併成一張圖，X 軸使用上面的 Start / End；未勾選則每個頻段各自一張固定比例的圖）
+    </label>
+  </div>
+
+  <div class="card">
+    <h2>4. 顯示內容</h2>
     <div class="check-row">
       <label><input type="checkbox" id="show-eff" checked> Efficiency</label>
       <label><input type="checkbox" id="show-gain" checked> Peak Gain</label>
@@ -174,7 +197,7 @@
   </div>
 
   <div class="card">
-    <h2>4. 自訂 Y 軸 Scale（選填）</h2>
+    <h2>5. 自訂 Y 軸 Scale（選填）</h2>
     <div class="y-block" id="y-eff">
       <h3>Efficiency (%)</h3>
       <div class="field-grid">
@@ -192,7 +215,7 @@
   </div>
 
   <div class="card">
-    <h2>5. 進階設定</h2>
+    <h2>6. 進階設定</h2>
     <details>
       <summary>展開進階設定</summary>
       <div class="field" style="max-width:260px;margin-top:10px;">
@@ -432,81 +455,115 @@ function niceStep(range, targetBins) {
   return nice * mag;
 }
 
-function renderMultiPanel(divId, seriesList, key, segments, ylim, ytitle, maxGap) {
+function buildSegmentTraces(seriesList, key, s, e, maxGap) {
   const traces = [];
-  const n = segments.length;
-  const gap = n > 1 ? 0.035 : 0;
-  const w = (1 - gap * (n - 1)) / n;
-  const legendedLabels = new Set();
+  seriesList.forEach((series, si) => {
+    const color = COLORS[si % COLORS.length];
+    const freqArr = series[key + "Freq"], valArr = series[key + "Val"];
+    const pts = freqArr
+      .map((f, idx) => ({ f, v: valArr[idx] }))
+      .filter(p => Number.isFinite(p.f) && Number.isFinite(p.v) && p.f >= s && p.f <= e)
+      .sort((a, b) => a.f - b.f);
+    if (!pts.length) return;
+    const xs = pts.map(p => p.f), ys = pts.map(p => p.v);
 
-  const layout = {
-    paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
-    showlegend: true,
-    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.22 },
-    margin: { l: 55, r: 15, t: 45, b: 110 },
-    annotations: [],
-  };
+    traces.push({
+      x: xs, y: ys, mode: "markers", type: "scatter",
+      marker: { size: 5, color }, name: series.label, legendgroup: series.label,
+      showlegend: true, color,
+    });
 
+    let start = 0;
+    for (let k = 1; k <= xs.length; k++) {
+      if (k === xs.length || xs[k] - xs[k - 1] > maxGap) {
+        if (k - start > 1) {
+          traces.push({
+            x: xs.slice(start, k), y: ys.slice(start, k), mode: "lines", type: "scatter",
+            line: { color, width: 1.5 }, legendgroup: series.label, showlegend: false, color,
+          });
+        }
+        start = k;
+      }
+    }
+  });
+  return traces;
+}
+
+// Each selected band gets its own independent, fixed-size chart (so the
+// aspect ratio never changes as more bands are added) laid out in a
+// horizontally-scrolling row. Returns the divIds created, for PNG stitching.
+function renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, maxGap) {
+  containerEl.innerHTML = "";
+  const scroll = document.createElement("div");
+  scroll.className = "panel-scroll";
+  containerEl.appendChild(scroll);
+
+  const divIds = [];
   segments.forEach((seg, i) => {
     const [s, e] = seg;
-    const domainStart = i * (w + gap);
-    const domainEnd = domainStart + w;
-    const axisSuffix = i === 0 ? "" : String(i + 1);
-    const xk = "xaxis" + axisSuffix, yk = "yaxis" + axisSuffix;
-    const xName = "x" + axisSuffix, yName = "y" + axisSuffix;
+    const divId = `${containerEl.id}-panel-${i}`;
+    divIds.push(divId);
+
+    const item = document.createElement("div");
+    item.className = "panel-item";
+    item.innerHTML = `<div class="plot-div" id="${divId}"></div>`;
+    scroll.appendChild(item);
+
+    const traces = buildSegmentTraces(seriesList, key, s, e, maxGap).map(t => {
+      const { color, ...rest } = t;
+      return rest;
+    });
     const xrange = [s - 10, e + 10];
-
-    layout[xk] = {
-      domain: [domainStart, domainEnd], range: xrange,
-      dtick: niceStep(xrange[1] - xrange[0], 51), tickangle: -90, tickfont: { size: 9 },
-      title: { text: "Frequency (MHz)", font: { size: 11 } },
-      gridcolor: "rgba(0,0,0,0.15)", showline: true, linecolor: "#333", linewidth: 1, mirror: true, zeroline: false,
+    const layout = {
+      title: { text: `${s}–${e} MHz`, font: { size: 13, color: "#1a1a1a" } },
+      xaxis: {
+        title: { text: "Frequency (MHz)", font: { size: 11 } }, range: xrange,
+        dtick: niceStep(xrange[1] - xrange[0], 51), tickangle: -90, tickfont: { size: 9 },
+        gridcolor: "rgba(0,0,0,0.15)", showline: true, linecolor: "#333", linewidth: 1, mirror: true, zeroline: false,
+      },
+      yaxis: {
+        title: { text: ytitle, font: { size: 12 } }, range: ylim, dtick: niceStep(ylim[1] - ylim[0], 11),
+        tickfont: { size: 10 },
+        gridcolor: "rgba(0,0,0,0.15)", showline: true, linecolor: "#333", linewidth: 1, mirror: true, zeroline: false,
+      },
+      paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
+      legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.55, font: { size: 9 } },
+      margin: { l: 50, r: 10, t: 30, b: 95 },
     };
-    layout[yk] = {
-      domain: [0, 1], range: ylim, dtick: niceStep(ylim[1] - ylim[0], 11),
-      tickfont: { size: 10 },
-      gridcolor: "rgba(0,0,0,0.15)", showline: true, linecolor: "#333", linewidth: 1, mirror: true, zeroline: false,
-    };
-    if (i === 0) layout[yk].title = { text: ytitle, font: { size: 13 } };
-
-    layout.annotations.push({
-      text: `${s}–${e} MHz`, x: (domainStart + domainEnd) / 2, xref: "paper",
-      y: 1.08, yref: "paper", showarrow: false, font: { size: 13, color: "#1a1a1a" },
-    });
-
-    seriesList.forEach((series, si) => {
-      const color = COLORS[si % COLORS.length];
-      const freqArr = series[key + "Freq"], valArr = series[key + "Val"];
-      const pts = freqArr
-        .map((f, idx) => ({ f, v: valArr[idx] }))
-        .filter(p => Number.isFinite(p.f) && Number.isFinite(p.v) && p.f >= s && p.f <= e)
-        .sort((a, b) => a.f - b.f);
-      if (!pts.length) return;
-      const xs = pts.map(p => p.f), ys = pts.map(p => p.v);
-      const showlegend = !legendedLabels.has(series.label);
-      legendedLabels.add(series.label);
-
-      traces.push({
-        x: xs, y: ys, mode: "markers", type: "scatter",
-        marker: { size: 5, color }, name: series.label, legendgroup: series.label,
-        showlegend, xaxis: xName, yaxis: yName,
-      });
-
-      let start = 0;
-      for (let k = 1; k <= xs.length; k++) {
-        if (k === xs.length || xs[k] - xs[k - 1] > maxGap) {
-          if (k - start > 1) {
-            traces.push({
-              x: xs.slice(start, k), y: ys.slice(start, k), mode: "lines", type: "scatter",
-              line: { color, width: 1.5 }, legendgroup: series.label, showlegend: false,
-              xaxis: xName, yaxis: yName,
-            });
-          }
-          start = k;
-        }
-      }
-    });
+    Plotly.newPlot(divId, traces, layout, { responsive: false, displaylogo: false, staticPlot: false });
   });
+
+  return divIds;
+}
+
+function renderMergedChart(divId, seriesList, key, xlim, bandRanges, ylim, ytitle, maxGap) {
+  const [s, e] = xlim;
+  const traces = buildSegmentTraces(seriesList, key, s, e, maxGap).map(t => {
+    const { color, ...rest } = t;
+    return rest;
+  });
+
+  const shapes = bandRanges.map(([bs, be], i) => ({
+    type: "rect", xref: "x", yref: "paper",
+    x0: Math.max(bs, s), x1: Math.min(be, e), y0: 0, y1: 1,
+    fillcolor: COLORS[i % COLORS.length], opacity: 0.15, line: { width: 0 }, layer: "below",
+  }));
+
+  const layout = {
+    xaxis: {
+      title: "Frequency (MHz)", range: xlim,
+      dtick: niceStep(e - s, 60), tickangle: -90,
+      gridcolor: "rgba(0,0,0,0.15)", showline: true, linecolor: "#333", linewidth: 1, mirror: true, zeroline: false,
+    },
+    yaxis: {
+      title: ytitle, range: ylim, dtick: niceStep(ylim[1] - ylim[0], 11),
+      gridcolor: "rgba(0,0,0,0.15)", showline: true, linecolor: "#333", linewidth: 1, mirror: true, zeroline: false,
+    },
+    shapes,
+    paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
+    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.2 },
+    margin: { l: 65, r: 20, t: 30, b: 100 },
+  };
 
   Plotly.newPlot(divId, traces, layout, { responsive: true, displaylogo: false });
 }
@@ -520,6 +577,44 @@ function downloadPng(divId, filename) {
     a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   });
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function downloadStitchedPng(divIds, filename) {
+  const scale = 3;
+  const shots = [];
+  for (const id of divIds) {
+    const el = document.getElementById(id);
+    const w = Math.round(el.offsetWidth) || 560;
+    const h = Math.round(el.offsetHeight) || 300;
+    const url = await Plotly.toImage(el, { format: "png", width: w, height: h, scale });
+    shots.push({ url, w: w * scale, h: h * scale });
+  }
+  const totalW = shots.reduce((a, b) => a + b.w, 0);
+  const maxH = Math.max(...shots.map(s => s.h));
+  const canvas = document.createElement("canvas");
+  canvas.width = totalW; canvas.height = maxH;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, totalW, maxH);
+  let x = 0;
+  for (const shot of shots) {
+    const img = await loadImage(shot.url);
+    ctx.drawImage(img, x, 0, shot.w, shot.h);
+    x += shot.w;
+  }
+  const a = document.createElement("a");
+  a.href = canvas.toDataURL("image/png");
+  a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 
 // ---------- UI wiring ----------
@@ -575,6 +670,11 @@ document.getElementById("run-btn").addEventListener("click", async () => {
     const maxGap = parseFloat(document.getElementById("max-gap").value);
     if (!(maxGap > 0)) throw new Error("線段最大頻率間隔必須大於 0。");
 
+    const mergeChart = document.getElementById("merge-chart").checked;
+    const fstart = parseFloat(document.getElementById("fstart").value);
+    const fend = parseFloat(document.getElementById("fend").value);
+    if (mergeChart && !(fstart < fend)) throw new Error("併圖時，Start 必須小於 End。");
+
     const sourceType = document.querySelector('input[name="source"]:checked').value;
     let seriesList;
     if (sourceType === "original") {
@@ -593,7 +693,7 @@ document.getElementById("run-btn").addEventListener("click", async () => {
 
     resultsEl.innerHTML = "";
 
-    function addResultBlock(id, heading, pngName) {
+    function addMergedBlock(id, heading, pngName, key, ylim, ytitle) {
       const card = document.createElement("div");
       card.className = "card result-card";
       card.innerHTML = `
@@ -602,16 +702,29 @@ document.getElementById("run-btn").addEventListener("click", async () => {
         <button class="dl-btn" id="${id}-dl">下載 ${heading} PNG</button>
       `;
       resultsEl.appendChild(card);
+      renderMergedChart(id, seriesList, key, [fstart, fend], bandRanges, ylim, ytitle, maxGap);
       document.getElementById(id + "-dl").addEventListener("click", () => downloadPng(id, pngName));
     }
 
+    function addPanelBlock(id, heading, pngName, key, ylim, ytitle) {
+      const card = document.createElement("div");
+      card.className = "card result-card";
+      card.innerHTML = `<h2>${heading}</h2><div id="${id}"></div><button class="dl-btn" id="${id}-dl">下載 ${heading} PNG（所有頻段合併成一張）</button>`;
+      resultsEl.appendChild(card);
+      const containerEl = document.getElementById(id);
+      const divIds = renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, maxGap);
+      document.getElementById(id + "-dl").addEventListener("click", () => downloadStitchedPng(divIds, pngName));
+    }
+
+    const bandRanges = segments;
+
     if (showEff) {
-      addResultBlock("chart-eff", "Efficiency", "efficiency.png");
-      renderMultiPanel("chart-eff", seriesList, "eff", segments, [effYmin, effYmax], "Efficiency (%)", maxGap);
+      if (mergeChart) addMergedBlock("chart-eff", "Efficiency", "efficiency.png", "eff", [effYmin, effYmax], "Efficiency (%)");
+      else addPanelBlock("chart-eff", "Efficiency", "efficiency.png", "eff", [effYmin, effYmax], "Efficiency (%)");
     }
     if (showGain) {
-      addResultBlock("chart-gain", "Peak Gain", "peak_gain.png");
-      renderMultiPanel("chart-gain", seriesList, "gain", segments, [gainYmin, gainYmax], "Peak Gain (dBi)", maxGap);
+      if (mergeChart) addMergedBlock("chart-gain", "Peak Gain", "peak_gain.png", "gain", [gainYmin, gainYmax], "Peak Gain (dBi)");
+      else addPanelBlock("chart-gain", "Peak Gain", "peak_gain.png", "gain", [gainYmin, gainYmax], "Peak Gain (dBi)");
     }
 
     const eff = mergedTable(seriesList, "eff");
