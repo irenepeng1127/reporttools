@@ -667,7 +667,9 @@ function renderChart(divId, data, title, yLabel, specs, bandRanges, xlim, yOpts,
   const stepDisp = stepMhz / divisor;
   const xminDisp = Math.ceil(toDisp(xlim[0]) / stepDisp) * stepDisp;
   const legendRows = Math.max(1, Math.ceil(data.columns.length / 6));
-  const marginBottom = 65 + legendRows * 24;
+  const LEGEND_GAP_FRACTION = 0.5; // fraction of the original chart-legend gap
+  const legendY = -0.32 * LEGEND_GAP_FRACTION;
+  const marginBottom = 55 + Math.round(35 * LEGEND_GAP_FRACTION) + legendRows * 24;
   const marginRight = 40;
 
   const layout = {
@@ -688,7 +690,7 @@ function renderChart(divId, data, title, yLabel, specs, bandRanges, xlim, yOpts,
       zeroline: false,
     },
     shapes,
-    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.08 },
+    legend: { orientation: "h", x: 0.5, xanchor: "center", y: legendY },
     margin: { l: 75, r: marginRight, t: 60, b: marginBottom },
     paper_bgcolor: "#ffffff",
     plot_bgcolor: "#ffffff",
