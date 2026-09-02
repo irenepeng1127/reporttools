@@ -131,9 +131,8 @@
 
   .panel-scroll {
     display: flex;
+    flex-wrap: wrap;
     gap: 14px;
-    overflow-x: auto;
-    padding-bottom: 6px;
   }
 
   .panel-item { flex: 0 0 auto; }
@@ -152,9 +151,18 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="top-nav"><a href="./index.html">&larr; 回入口頁</a></div>
+  <div class="top-nav" style="display:flex; align-items:center; justify-content:space-between;">
+    <a href="./index.html">&larr; 回入口頁</a>
+    <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; color:var(--muted);">
+      頻率單位
+      <select id="unit-select" style="padding:6px 10px; border-radius:8px; border:1px solid var(--input-border); background:var(--input-bg); color:var(--fg);">
+        <option value="GHz" selected>GHz</option>
+        <option value="MHz">MHz</option>
+      </select>
+    </label>
+  </div>
   <h1>📈 Efficiency & Peak Gain</h1>
-  <div class="caption">所有頻率單位統一為 MHz。上傳 CSV 後可預覽並下載圖表與資料。（純前端運算，資料不會上傳到任何伺服器）</div>
+  <div class="caption">所有頻率設定皆使用同一單位（可用右上角切換 MHz / GHz）。上傳 CSV 後可預覽並下載圖表與資料。（純前端運算，資料不會上傳到任何伺服器）</div>
 
   <div class="card">
     <h2>1. 上傳資料</h2>
@@ -167,25 +175,25 @@
   </div>
 
   <div class="card">
-    <h2>2. 頻段 (MHz)</h2>
-    <div class="check-row" id="band-checks"></div>
-    <details style="margin-top:12px;">
-      <summary>手動頻段（選填）</summary>
-      <div class="hint">最多 5 組，單位 MHz。</div>
-      <div id="manual-band-rows"></div>
-    </details>
-  </div>
-
-  <div class="card">
-    <h2>3. 頻率範圍 (MHz)</h2>
+    <h2>2. 頻率範圍 (<span class="unit-tag">GHz</span>)</h2>
     <div class="field-grid">
-      <div class="field"><label>Start (MHz)</label><input type="number" id="fstart" value="600" step="1"></div>
-      <div class="field"><label>End (MHz)</label><input type="number" id="fend" value="7200" step="1"></div>
+      <div class="field"><label>Start (<span class="unit-tag">GHz</span>)</label><input type="number" id="fstart" value="0.6" step="any"></div>
+      <div class="field"><label>End (<span class="unit-tag">GHz</span>)</label><input type="number" id="fend" value="7.2" step="any"></div>
     </div>
     <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;margin-top:12px;">
       <input type="checkbox" id="merge-chart">
       併圖（合併成一張圖，X 軸使用上面的 Start / End；未勾選則每個頻段各自一張固定比例的圖）
     </label>
+  </div>
+
+  <div class="card">
+    <h2>3. 頻段</h2>
+    <div class="check-row" id="band-checks"></div>
+    <details style="margin-top:12px;">
+      <summary>手動頻段（選填）</summary>
+      <div class="hint">最多 5 組，單位 <span class="unit-tag">GHz</span>。</div>
+      <div id="manual-band-rows"></div>
+    </details>
   </div>
 
   <div class="card">
@@ -233,12 +241,12 @@
 
 <script>
 const BANDS = [
-  ["LB (617–960)", 617, 960],
-  ["MB (1710–2700)", 1710, 2700],
-  ["CB (3300–5000)", 3300, 5000],
-  ["2G Wi-Fi (2400–2500)", 2400, 2500],
-  ["5G Wi-Fi (5150–5850)", 5150, 5850],
-  ["6G Wi-Fi (5925–7125)", 5925, 7125],
+  ["2G", 2400, 2500],
+  ["5G", 5150, 5850],
+  ["6G", 5925, 7125],
+  ["LB(617-960MHz)", 617, 960],
+  ["MB(1710-2690MHz)", 1710, 2690],
+  ["CB(3300-5000MHz)", 3300, 5000],
 ];
 const COLORS = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"];
 
@@ -255,8 +263,8 @@ for (let i = 0; i < 5; i++) {
   const row = document.createElement("div");
   row.className = "band-row";
   row.innerHTML = `
-    <div class="field"><label>Start ${i + 1}</label><input type="text" id="manual-start-${i}"></div>
-    <div class="field"><label>End ${i + 1}</label><input type="text" id="manual-end-${i}"></div>
+    <div class="field"><label>Start <span class="unit-tag">GHz</span> ${i + 1}</label><input type="text" id="manual-start-${i}"></div>
+    <div class="field"><label>End <span class="unit-tag">GHz</span> ${i + 1}</label><input type="text" id="manual-end-${i}"></div>
   `;
   manualRowsEl.appendChild(row);
 }
@@ -266,6 +274,39 @@ document.getElementById("show-eff").addEventListener("change", (e) => {
 });
 document.getElementById("show-gain").addEventListener("change", (e) => {
   document.getElementById("y-gain").hidden = !e.target.checked;
+});
+
+// ---------- Unit toggle (display unit only; all internal computation stays in MHz) ----------
+let currentUnit = "GHz";
+const FREQ_INPUT_IDS = ["fstart", "fend"];
+for (let i = 0; i < 5; i++) FREQ_INPUT_IDS.push("manual-start-" + i, "manual-end-" + i);
+
+function toMHz(displayVal) {
+  return currentUnit === "GHz" ? displayVal * 1000 : displayVal;
+}
+
+function formatNum(v) {
+  if (!Number.isFinite(v)) return "";
+  return parseFloat(v.toFixed(6)).toString();
+}
+
+function refreshUnitLabels() {
+  document.querySelectorAll(".unit-tag").forEach(el => { el.textContent = currentUnit; });
+}
+
+document.getElementById("unit-select").addEventListener("change", (e) => {
+  const newUnit = e.target.value;
+  if (newUnit === currentUnit) return;
+  const factor = currentUnit === "GHz" && newUnit === "MHz" ? 1000
+    : (currentUnit === "MHz" && newUnit === "GHz" ? 1 / 1000 : 1);
+  FREQ_INPUT_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const v = parseFloat(el.value);
+    if (Number.isFinite(v)) el.value = formatNum(v * factor);
+  });
+  currentUnit = newUnit;
+  refreshUnitLabels();
 });
 
 // ---------- File parsing ----------
@@ -455,7 +496,8 @@ function niceStep(range, targetBins) {
   return nice * mag;
 }
 
-function buildSegmentTraces(seriesList, key, s, e, maxGap) {
+function buildSegmentTraces(seriesList, key, s, e, maxGap, divisor) {
+  divisor = divisor || 1;
   const traces = [];
   seriesList.forEach((series, si) => {
     const color = COLORS[si % COLORS.length];
@@ -465,7 +507,8 @@ function buildSegmentTraces(seriesList, key, s, e, maxGap) {
       .filter(p => Number.isFinite(p.f) && Number.isFinite(p.v) && p.f >= s && p.f <= e)
       .sort((a, b) => a.f - b.f);
     if (!pts.length) return;
-    const xs = pts.map(p => p.f), ys = pts.map(p => p.v);
+    const freqsMHz = pts.map(p => p.f);
+    const xs = freqsMHz.map(f => f / divisor), ys = pts.map(p => p.v);
 
     traces.push({
       x: xs, y: ys, mode: "markers", type: "scatter",
@@ -475,7 +518,7 @@ function buildSegmentTraces(seriesList, key, s, e, maxGap) {
 
     let start = 0;
     for (let k = 1; k <= xs.length; k++) {
-      if (k === xs.length || xs[k] - xs[k - 1] > maxGap) {
+      if (k === xs.length || freqsMHz[k] - freqsMHz[k - 1] > maxGap) {
         if (k - start > 1) {
           traces.push({
             x: xs.slice(start, k), y: ys.slice(start, k), mode: "lines", type: "scatter",
@@ -492,7 +535,8 @@ function buildSegmentTraces(seriesList, key, s, e, maxGap) {
 // Each selected band gets its own independent, fixed-size chart (so the
 // aspect ratio never changes as more bands are added) laid out in a
 // horizontally-scrolling row. Returns the divIds created, for PNG stitching.
-function renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, maxGap) {
+function renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, maxGap, unit) {
+  const divisor = unit === "GHz" ? 1000 : 1;
   containerEl.innerHTML = "";
   const scroll = document.createElement("div");
   scroll.className = "panel-scroll";
@@ -509,15 +553,16 @@ function renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, 
     item.innerHTML = `<div class="plot-div" id="${divId}"></div>`;
     scroll.appendChild(item);
 
-    const traces = buildSegmentTraces(seriesList, key, s, e, maxGap).map(t => {
+    const traces = buildSegmentTraces(seriesList, key, s, e, maxGap, divisor).map(t => {
       const { color, ...rest } = t;
       return rest;
     });
-    const xrange = [s - 10, e + 10];
+    const xrangeMhz = [s - 10, e + 10];
+    const xrange = [xrangeMhz[0] / divisor, xrangeMhz[1] / divisor];
     const layout = {
-      title: { text: `${s}–${e} MHz`, font: { size: 13, color: "#1a1a1a" } },
+      title: { text: `${s / divisor}–${e / divisor} ${unit}`, font: { size: 13, color: "#1a1a1a" } },
       xaxis: {
-        title: { text: "Frequency (MHz)", font: { size: 11 } }, range: xrange,
+        title: { text: `Frequency (${unit})`, font: { size: 11 } }, range: xrange,
         dtick: niceStep(xrange[1] - xrange[0], 51), tickangle: -90, tickfont: { size: 9 },
         gridcolor: "rgba(0,0,0,0.15)", showline: true, linecolor: "#333", linewidth: 1, mirror: true, zeroline: false,
       },
@@ -536,23 +581,25 @@ function renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, 
   return divIds;
 }
 
-function renderMergedChart(divId, seriesList, key, xlim, bandRanges, ylim, ytitle, maxGap) {
+function renderMergedChart(divId, seriesList, key, xlim, bandRanges, ylim, ytitle, maxGap, unit) {
+  const divisor = unit === "GHz" ? 1000 : 1;
   const [s, e] = xlim;
-  const traces = buildSegmentTraces(seriesList, key, s, e, maxGap).map(t => {
+  const traces = buildSegmentTraces(seriesList, key, s, e, maxGap, divisor).map(t => {
     const { color, ...rest } = t;
     return rest;
   });
 
   const shapes = bandRanges.map(([bs, be], i) => ({
     type: "rect", xref: "x", yref: "paper",
-    x0: Math.max(bs, s), x1: Math.min(be, e), y0: 0, y1: 1,
+    x0: Math.max(bs, s) / divisor, x1: Math.min(be, e) / divisor, y0: 0, y1: 1,
     fillcolor: COLORS[i % COLORS.length], opacity: 0.15, line: { width: 0 }, layer: "below",
   }));
 
+  const xlimDisp = [s / divisor, e / divisor];
   const layout = {
     xaxis: {
-      title: "Frequency (MHz)", range: xlim,
-      dtick: niceStep(e - s, 60), tickangle: -90,
+      title: `Frequency (${unit})`, range: xlimDisp,
+      dtick: niceStep(xlimDisp[1] - xlimDisp[0], 60), tickangle: -90,
       gridcolor: "rgba(0,0,0,0.15)", showline: true, linecolor: "#333", linewidth: 1, mirror: true, zeroline: false,
     },
     yaxis: {
@@ -648,7 +695,7 @@ document.getElementById("run-btn").addEventListener("click", async () => {
       const s = document.getElementById("manual-start-" + i).value.trim();
       const e = document.getElementById("manual-end-" + i).value.trim();
       if (s && e) {
-        const sf = parseFloat(s), ef = parseFloat(e);
+        const sf = toMHz(parseFloat(s)), ef = toMHz(parseFloat(e));
         segments.push([Math.min(sf, ef), Math.max(sf, ef)]);
       }
     }
@@ -671,8 +718,8 @@ document.getElementById("run-btn").addEventListener("click", async () => {
     if (!(maxGap > 0)) throw new Error("線段最大頻率間隔必須大於 0。");
 
     const mergeChart = document.getElementById("merge-chart").checked;
-    const fstart = parseFloat(document.getElementById("fstart").value);
-    const fend = parseFloat(document.getElementById("fend").value);
+    const fstart = toMHz(parseFloat(document.getElementById("fstart").value));
+    const fend = toMHz(parseFloat(document.getElementById("fend").value));
     if (mergeChart && !(fstart < fend)) throw new Error("併圖時，Start 必須小於 End。");
 
     const sourceType = document.querySelector('input[name="source"]:checked').value;
@@ -702,7 +749,7 @@ document.getElementById("run-btn").addEventListener("click", async () => {
         <button class="dl-btn" id="${id}-dl">下載 ${heading} PNG</button>
       `;
       resultsEl.appendChild(card);
-      renderMergedChart(id, seriesList, key, [fstart, fend], bandRanges, ylim, ytitle, maxGap);
+      renderMergedChart(id, seriesList, key, [fstart, fend], bandRanges, ylim, ytitle, maxGap, currentUnit);
       document.getElementById(id + "-dl").addEventListener("click", () => downloadPng(id, pngName));
     }
 
@@ -712,7 +759,7 @@ document.getElementById("run-btn").addEventListener("click", async () => {
       card.innerHTML = `<h2>${heading}</h2><div id="${id}"></div><button class="dl-btn" id="${id}-dl">下載 ${heading} PNG（所有頻段合併成一張）</button>`;
       resultsEl.appendChild(card);
       const containerEl = document.getElementById(id);
-      const divIds = renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, maxGap);
+      const divIds = renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, maxGap, currentUnit);
       document.getElementById(id + "-dl").addEventListener("click", () => downloadStitchedPng(divIds, pngName));
     }
 
