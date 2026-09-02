@@ -176,14 +176,14 @@
 
   <div class="card">
     <h2>2. 頻率範圍 (<span class="unit-tag">GHz</span>)</h2>
-    <div class="field-grid">
+    <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;">
+      <input type="checkbox" id="merge-chart">
+      併圖（合併成一張圖；未勾選則每個頻段各自一張固定比例的圖）
+    </label>
+    <div class="field-grid" id="merge-range-fields" hidden style="margin-top:12px;">
       <div class="field"><label>Start (<span class="unit-tag">GHz</span>)</label><input type="number" id="fstart" value="0.6" step="any"></div>
       <div class="field"><label>End (<span class="unit-tag">GHz</span>)</label><input type="number" id="fend" value="7.2" step="any"></div>
     </div>
-    <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;margin-top:12px;">
-      <input type="checkbox" id="merge-chart">
-      併圖（合併成一張圖，X 軸使用上面的 Start / End；未勾選則每個頻段各自一張固定比例的圖）
-    </label>
   </div>
 
   <div class="card">
@@ -274,6 +274,9 @@ document.getElementById("show-eff").addEventListener("change", (e) => {
 });
 document.getElementById("show-gain").addEventListener("change", (e) => {
   document.getElementById("y-gain").hidden = !e.target.checked;
+});
+document.getElementById("merge-chart").addEventListener("change", (e) => {
+  document.getElementById("merge-range-fields").hidden = !e.target.checked;
 });
 
 // ---------- Unit toggle (display unit only; all internal computation stays in MHz) ----------
@@ -533,24 +536,26 @@ function buildSegmentTraces(seriesList, key, s, e, maxGap, divisor) {
 }
 
 // Each selected band gets its own independent, fixed-size chart (so the
-// aspect ratio never changes as more bands are added) laid out in a
-// horizontally-scrolling row. Returns the divIds created, for PNG stitching.
-function renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, maxGap, unit) {
+// aspect ratio never changes as more bands are added) laid out in a row
+// that wraps onto new lines. Each panel gets its own PNG download button.
+function renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, maxGap, unit, filenameBase) {
   const divisor = unit === "GHz" ? 1000 : 1;
   containerEl.innerHTML = "";
   const scroll = document.createElement("div");
   scroll.className = "panel-scroll";
   containerEl.appendChild(scroll);
 
-  const divIds = [];
+  const legendRows = Math.max(1, Math.ceil(seriesList.length / 6));
+  const legendY = -0.16;
+  const marginBottom = 60 + legendRows * 20;
+
   segments.forEach((seg, i) => {
     const [s, e] = seg;
     const divId = `${containerEl.id}-panel-${i}`;
-    divIds.push(divId);
 
     const item = document.createElement("div");
     item.className = "panel-item";
-    item.innerHTML = `<div class="plot-div" id="${divId}"></div>`;
+    item.innerHTML = `<div class="plot-div" id="${divId}"></div><button class="dl-btn panel-dl" id="${divId}-dl">下載 PNG</button>`;
     scroll.appendChild(item);
 
     const traces = buildSegmentTraces(seriesList, key, s, e, maxGap, divisor).map(t => {
@@ -572,13 +577,14 @@ function renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, 
         gridcolor: "rgba(0,0,0,0.15)", showline: true, linecolor: "#333", linewidth: 1, mirror: true, zeroline: false,
       },
       paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
-      legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.55, font: { size: 9 } },
-      margin: { l: 50, r: 10, t: 30, b: 95 },
+      legend: { orientation: "h", x: 0.5, xanchor: "center", y: legendY, font: { size: 9 } },
+      margin: { l: 50, r: 10, t: 30, b: marginBottom },
     };
     Plotly.newPlot(divId, traces, layout, { responsive: false, displaylogo: false, staticPlot: false });
-  });
 
-  return divIds;
+    const pngName = `${filenameBase}_${s}-${e}MHz.png`;
+    document.getElementById(divId + "-dl").addEventListener("click", () => downloadPng(divId, pngName));
+  });
 }
 
 function renderMergedChart(divId, seriesList, key, xlim, bandRanges, ylim, ytitle, maxGap, unit) {
@@ -608,8 +614,8 @@ function renderMergedChart(divId, seriesList, key, xlim, bandRanges, ylim, ytitl
     },
     shapes,
     paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
-    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.2 },
-    margin: { l: 65, r: 20, t: 30, b: 100 },
+    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.16 },
+    margin: { l: 65, r: 20, t: 30, b: 60 + Math.max(1, Math.ceil(seriesList.length / 6)) * 24 },
   };
 
   Plotly.newPlot(divId, traces, layout, { responsive: true, displaylogo: false });
@@ -626,43 +632,6 @@ function downloadPng(divId, filename) {
   });
 }
 
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-}
-
-async function downloadStitchedPng(divIds, filename) {
-  const scale = 3;
-  const shots = [];
-  for (const id of divIds) {
-    const el = document.getElementById(id);
-    const w = Math.round(el.offsetWidth) || 560;
-    const h = Math.round(el.offsetHeight) || 300;
-    const url = await Plotly.toImage(el, { format: "png", width: w, height: h, scale });
-    shots.push({ url, w: w * scale, h: h * scale });
-  }
-  const totalW = shots.reduce((a, b) => a + b.w, 0);
-  const maxH = Math.max(...shots.map(s => s.h));
-  const canvas = document.createElement("canvas");
-  canvas.width = totalW; canvas.height = maxH;
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, totalW, maxH);
-  let x = 0;
-  for (const shot of shots) {
-    const img = await loadImage(shot.url);
-    ctx.drawImage(img, x, 0, shot.w, shot.h);
-    x += shot.w;
-  }
-  const a = document.createElement("a");
-  a.href = canvas.toDataURL("image/png");
-  a.download = filename;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-}
 
 // ---------- UI wiring ----------
 const fileInput = document.getElementById("file-input");
@@ -753,25 +722,24 @@ document.getElementById("run-btn").addEventListener("click", async () => {
       document.getElementById(id + "-dl").addEventListener("click", () => downloadPng(id, pngName));
     }
 
-    function addPanelBlock(id, heading, pngName, key, ylim, ytitle) {
+    function addPanelBlock(id, heading, filenameBase, key, ylim, ytitle) {
       const card = document.createElement("div");
       card.className = "card result-card";
-      card.innerHTML = `<h2>${heading}</h2><div id="${id}"></div><button class="dl-btn" id="${id}-dl">下載 ${heading} PNG（所有頻段合併成一張）</button>`;
+      card.innerHTML = `<h2>${heading}</h2><div id="${id}"></div>`;
       resultsEl.appendChild(card);
       const containerEl = document.getElementById(id);
-      const divIds = renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, maxGap, currentUnit);
-      document.getElementById(id + "-dl").addEventListener("click", () => downloadStitchedPng(divIds, pngName));
+      renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, maxGap, currentUnit, filenameBase);
     }
 
     const bandRanges = segments;
 
     if (showEff) {
       if (mergeChart) addMergedBlock("chart-eff", "Efficiency", "efficiency.png", "eff", [effYmin, effYmax], "Efficiency (%)");
-      else addPanelBlock("chart-eff", "Efficiency", "efficiency.png", "eff", [effYmin, effYmax], "Efficiency (%)");
+      else addPanelBlock("chart-eff", "Efficiency", "efficiency", "eff", [effYmin, effYmax], "Efficiency (%)");
     }
     if (showGain) {
       if (mergeChart) addMergedBlock("chart-gain", "Peak Gain", "peak_gain.png", "gain", [gainYmin, gainYmax], "Peak Gain (dBi)");
-      else addPanelBlock("chart-gain", "Peak Gain", "peak_gain.png", "gain", [gainYmin, gainYmax], "Peak Gain (dBi)");
+      else addPanelBlock("chart-gain", "Peak Gain", "peak_gain", "gain", [gainYmin, gainYmax], "Peak Gain (dBi)");
     }
 
     const eff = mergedTable(seriesList, "eff");
