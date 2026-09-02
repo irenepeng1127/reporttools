@@ -108,6 +108,9 @@
 
   .plot-div { width: 100%; height: 560px; }
 
+  .pattern-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .pattern-item .plot-div { width: 380px; height: 420px; }
+
   .dl-btn {
     display: inline-block; margin-top: 10px; padding: 8px 14px; border-radius: 8px;
     border: 1px solid var(--input-border); background: var(--input-bg); color: var(--fg);
@@ -704,99 +707,128 @@ function buildPlaneTraces(fileData, plane, freq, opts) {
   return { traces, fineAngles };
 }
 
-function renderPatternFigure(divId, fileData, freq, opts) {
-  const gap = 0.06;
-  const pad = 0.015;
-  const w = (1 - 2 * pad - gap * 2) / 3;
-  const domains = [
-    [pad, pad + w],
-    [pad + w + gap, pad + 2 * w + gap],
-    [1 - pad - w, 1 - pad],
-  ];
+const PATTERN_SIZE = 380;
 
-  const layout = {
-    paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
-    showlegend: true,
-    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.02 },
-    margin: { l: 50, r: 50, t: 22, b: 30 },
-    annotations: [],
-  };
+// Each plane is rendered as its own independent Plotly figure, centered on
+// itself (cx=0.5). A single combined figure with 3 side-by-side polar
+// domains centered the outer two circles slightly off from their domain's
+// nominal midpoint (a Plotly polar-subplot quirk); giving each plane its
+// own figure sidesteps that entirely since every figure is self-centered.
+function renderPatternFigures(containerEl, fileData, freq, opts) {
+  containerEl.innerHTML = "";
+  const row = document.createElement("div");
+  row.className = "pattern-row";
+  containerEl.appendChild(row);
 
-  const allTraces = [];
-  const legendedNames = new Set();
   const radialTicks = [];
   const nTicks = 10;
   for (let i = 0; i < nTicks; i++) {
     radialTicks.push(opts.ylimMin + (opts.ylimMax - opts.ylimMin) * i / (nTicks - 1));
   }
 
-  PLANES.forEach((plane, i) => {
-    const polarKey = i === 0 ? "polar" : "polar" + (i + 1);
-    const domain = domains[i];
+  const cx = 0.5, cy = 0.46;
+  const domainX = [0.06, 0.94], domainY = [0.06, 0.86];
+  const labelMap = { XY: ["Y", "X"], ZX: ["X", "Z"], ZY: ["Y", "Z"] };
 
-    layout[polarKey] = {
-      domain: { x: domain, y: [0.03, 0.92] },
-      bgcolor: "#ffffff",
-      angularaxis: {
-        rotation: 90, direction: "clockwise",
-        tickmode: "array",
-        tickvals: Array.from({ length: 24 }, (_, k) => k * 15),
-        ticktext: Array.from({ length: 24 }, (_, k) => String(k * 15)),
-        tickfont: { size: 9 },
-        gridcolor: "rgba(0,0,0,0.2)", linecolor: "rgba(0,0,0,0.2)",
+  const divIds = [];
+  PLANES.forEach((plane, i) => {
+    const divId = `${containerEl.id}-plane-${i}`;
+    divIds.push(divId);
+
+    const item = document.createElement("div");
+    item.className = "pattern-item";
+    item.innerHTML = `<div class="plot-div" id="${divId}"></div>`;
+    row.appendChild(item);
+
+    const { traces } = buildPlaneTraces(fileData, plane, freq, { ...opts, polarKey: "polar" });
+
+    const arrowLen = (domainX[1] - domainX[0]) * 0.07;
+    const [rightLabel, upLabel] = labelMap[plane];
+
+    const layout = {
+      paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
+      showlegend: true,
+      legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.1, font: { size: 9 } },
+      margin: { l: 30, r: 30, t: 26, b: 46 },
+      width: PATTERN_SIZE, height: PATTERN_SIZE + 40,
+      polar: {
+        domain: { x: domainX, y: domainY },
+        bgcolor: "#ffffff",
+        angularaxis: {
+          rotation: 90, direction: "clockwise",
+          tickmode: "array",
+          tickvals: Array.from({ length: 24 }, (_, k) => k * 15),
+          ticktext: Array.from({ length: 24 }, (_, k) => String(k * 15)),
+          tickfont: { size: 9 },
+          gridcolor: "rgba(0,0,0,0.2)", linecolor: "rgba(0,0,0,0.2)",
+        },
+        radialaxis: {
+          range: [opts.ylimMin, opts.ylimMax],
+          tickmode: "array",
+          tickvals: radialTicks,
+          ticktext: radialTicks.map(v => v.toFixed(0)),
+          tickfont: { size: 8 },
+          tickangle: 90,
+          angle: 90,
+          gridcolor: "rgba(0,0,0,0.2)", linecolor: "rgba(0,0,0,0.2)",
+        },
       },
-      radialaxis: {
-        range: [opts.ylimMin, opts.ylimMax],
-        tickmode: "array",
-        tickvals: radialTicks,
-        ticktext: radialTicks.map(v => v.toFixed(0)),
-        tickfont: { size: 8 },
-        tickangle: 90,
-        angle: 90,
-        gridcolor: "rgba(0,0,0,0.2)", linecolor: "rgba(0,0,0,0.2)",
-      },
+      annotations: [
+        { text: `${freq} ${plane} Plane`, x: cx, y: 0.98, xref: "paper", yref: "paper",
+          showarrow: false, xanchor: "center", font: { size: 13, color: "#1a1a1a" } },
+        { x: cx + arrowLen, y: cy, ax: cx, ay: cy, xref: "paper", yref: "paper", axref: "paper", ayref: "paper",
+          showarrow: true, arrowhead: 2, arrowsize: 1, arrowwidth: 1.2, text: "" },
+        { text: rightLabel, x: cx + arrowLen + 0.02, y: cy, xref: "paper", yref: "paper",
+          showarrow: false, font: { size: 11 }, xanchor: "left" },
+        { x: cx, y: cy + arrowLen, ax: cx, ay: cy, xref: "paper", yref: "paper", axref: "paper", ayref: "paper",
+          showarrow: true, arrowhead: 2, arrowsize: 1, arrowwidth: 1.2, text: "" },
+        { text: upLabel, x: cx, y: cy + arrowLen + 0.03, xref: "paper", yref: "paper",
+          showarrow: false, font: { size: 11 }, yanchor: "bottom" },
+      ],
     };
 
-    const cx = (domain[0] + domain[1]) / 2;
-    layout.annotations.push({
-      text: `${freq} ${plane} Plane`, x: cx, y: 0.965, xref: "paper", yref: "paper",
-      showarrow: false, font: { size: 13, color: "#1a1a1a" },
-    });
-
-    const { traces } = buildPlaneTraces(fileData, plane, freq, { ...opts, polarKey });
-    traces.forEach(t => {
-      if (legendedNames.has(t.name)) t.showlegend = false;
-      else legendedNames.add(t.name);
-      allTraces.push(t);
-    });
-
-    const cy = (0.03 + 0.92) / 2;
-    const dw = domain[1] - domain[0];
-    const arrowLen = dw * 0.06;
-    const labelMap = { XY: ["Y", "X"], ZX: ["X", "Z"], ZY: ["Y", "Z"] };
-    const [rightLabel, upLabel] = labelMap[plane];
-    layout.annotations.push(
-      { x: cx + arrowLen, y: cy, ax: cx, ay: cy, xref: "paper", yref: "paper", axref: "paper", ayref: "paper",
-        showarrow: true, arrowhead: 2, arrowsize: 1, arrowwidth: 1.2, text: "" },
-      { text: rightLabel, x: cx + arrowLen + 0.01, y: cy, xref: "paper", yref: "paper", showarrow: false, font: { size: 11 }, xanchor: "left" },
-      { x: cx, y: cy + arrowLen, ax: cx, ay: cy, xref: "paper", yref: "paper", axref: "paper", ayref: "paper",
-        showarrow: true, arrowhead: 2, arrowsize: 1, arrowwidth: 1.2, text: "" },
-      { text: upLabel, x: cx, y: cy + arrowLen + 0.02, xref: "paper", yref: "paper", showarrow: false, font: { size: 11 }, yanchor: "bottom" }
-    );
+    Plotly.newPlot(divId, traces, layout, { responsive: true, displaylogo: false });
   });
 
-  Plotly.newPlot(divId, allTraces, layout, { responsive: true, displaylogo: false });
+  return divIds;
 }
 
-function downloadPng(divId, filename) {
-  const el = document.getElementById(divId);
-  const w = Math.round(el.offsetWidth) || 1200;
-  const h = Math.round(el.offsetHeight) || 560;
-  Plotly.toImage(el, { format: "png", width: w, height: h, scale: 3 }).then(url => {
-    const a = document.createElement("a");
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+function loadImageEl(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
   });
+}
+
+async function downloadStitchedPatternPng(divIds, filename) {
+  const scale = 3;
+  const shots = [];
+  for (const id of divIds) {
+    const el = document.getElementById(id);
+    const w = Math.round(el.offsetWidth) || PATTERN_SIZE;
+    const h = Math.round(el.offsetHeight) || PATTERN_SIZE + 40;
+    const url = await Plotly.toImage(el, { format: "png", width: w, height: h, scale });
+    shots.push({ url, w: w * scale, h: h * scale });
+  }
+  const totalW = shots.reduce((a, b) => a + b.w, 0);
+  const maxH = Math.max(...shots.map(s => s.h));
+  const canvas = document.createElement("canvas");
+  canvas.width = totalW; canvas.height = maxH;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, totalW, maxH);
+  let x = 0;
+  for (const shot of shots) {
+    const img = await loadImageEl(shot.url);
+    ctx.drawImage(img, x, 0, shot.w, shot.h);
+    x += shot.w;
+  }
+  const a = document.createElement("a");
+  a.href = canvas.toDataURL("image/png");
+  a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 
 // ---------- UI wiring ----------
@@ -912,12 +944,12 @@ document.getElementById("draw-btn").addEventListener("click", () => {
     card.className = "card result-card";
     card.innerHTML = `
       <h2>Pattern</h2>
-      <div class="plot-div" id="pattern-chart" style="height:420px;"></div>
+      <div id="pattern-chart"></div>
       <button class="dl-btn" id="pattern-dl">下載 Pattern PNG</button>
     `;
     resultsEl.appendChild(card);
-    renderPatternFigure("pattern-chart", currentFileData, freq, opts);
-    document.getElementById("pattern-dl").addEventListener("click", () => downloadPng("pattern-chart", "2D_pattern.png"));
+    const patternDivIds = renderPatternFigures(document.getElementById("pattern-chart"), currentFileData, freq, opts);
+    document.getElementById("pattern-dl").addEventListener("click", () => downloadStitchedPatternPng(patternDivIds, "2D_pattern.png"));
 
     const statsRows = buildStatsTable(currentFileData, freq);
     if (statsRows.length) {
