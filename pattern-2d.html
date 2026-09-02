@@ -115,7 +115,11 @@
     display: flex; flex-wrap: wrap; gap: 18px; justify-content: center;
     margin-top: 4px; padding-top: 10px;
   }
-  .pattern-legend .item { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+  .pattern-legend .item {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem;
+    cursor: pointer; user-select: none;
+  }
+  .pattern-legend .item.legend-hidden { opacity: 0.35; }
   .pattern-legend .swatch { display: inline-block; width: 26px; height: 0; border-top: 3px solid; }
   .pattern-legend .swatch.dashed { border-top-style: dashed; }
 
@@ -741,6 +745,7 @@ function renderPatternFigures(containerEl, fileData, freq, opts) {
   const divIds = [];
   const legendItems = [];
   const seenLegendNames = new Set();
+  const traceIndexByName = {}; // name -> { divId: [traceIndex, ...] }
 
   PLANES.forEach((plane, i) => {
     const divId = `${containerEl.id}-plane-${i}`;
@@ -752,10 +757,14 @@ function renderPatternFigures(containerEl, fileData, freq, opts) {
     row.appendChild(item);
 
     const { traces } = buildPlaneTraces(fileData, plane, freq, { ...opts, polarKey: "polar" });
-    traces.forEach(t => {
-      if (seenLegendNames.has(t.name)) return;
-      seenLegendNames.add(t.name);
-      legendItems.push({ name: t.name, color: t.line.color, dashed: t.line.dash === "dash" });
+    traces.forEach((t, idx) => {
+      if (!traceIndexByName[t.name]) traceIndexByName[t.name] = {};
+      if (!traceIndexByName[t.name][divId]) traceIndexByName[t.name][divId] = [];
+      traceIndexByName[t.name][divId].push(idx);
+      if (!seenLegendNames.has(t.name)) {
+        seenLegendNames.add(t.name);
+        legendItems.push({ name: t.name, color: t.line.color, dashed: t.line.dash === "dash" });
+      }
     });
 
     const arrowLen = (domainX[1] - domainX[0]) * 0.07;
@@ -807,9 +816,21 @@ function renderPatternFigures(containerEl, fileData, freq, opts) {
 
   const legendEl = document.createElement("div");
   legendEl.className = "pattern-legend";
-  legendEl.innerHTML = legendItems.map(it =>
-    `<span class="item"><span class="swatch${it.dashed ? " dashed" : ""}" style="border-color:${it.color};"></span>${it.name}</span>`
-  ).join("");
+  legendItems.forEach(it => {
+    const span = document.createElement("span");
+    span.className = "item";
+    span.innerHTML = `<span class="swatch${it.dashed ? " dashed" : ""}" style="border-color:${it.color};"></span>${it.name}`;
+    let hidden = false;
+    span.addEventListener("click", () => {
+      hidden = !hidden;
+      span.classList.toggle("legend-hidden", hidden);
+      const perDiv = traceIndexByName[it.name] || {};
+      Object.keys(perDiv).forEach(divId => {
+        Plotly.restyle(divId, { visible: !hidden }, perDiv[divId]);
+      });
+    });
+    legendEl.appendChild(span);
+  });
   containerEl.appendChild(legendEl);
 
   return { divIds, legendItems };
