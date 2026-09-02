@@ -706,8 +706,13 @@ function buildPlaneTraces(fileData, plane, freq, opts) {
 
 function renderPatternFigure(divId, fileData, freq, opts) {
   const gap = 0.06;
-  const w = (1 - gap * 2) / 3;
-  const domains = [[0, w], [w + gap, 2 * w + gap], [2 * (w + gap), 1]];
+  const pad = 0.015;
+  const w = (1 - 2 * pad - gap * 2) / 3;
+  const domains = [
+    [pad, pad + w],
+    [pad + w + gap, pad + 2 * w + gap],
+    [1 - pad - w, 1 - pad],
+  ];
 
   const layout = {
     paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
@@ -746,7 +751,7 @@ function renderPatternFigure(divId, fileData, freq, opts) {
         tickvals: radialTicks,
         ticktext: radialTicks.map(v => v.toFixed(0)),
         tickfont: { size: 8 },
-        tickangle: 0,
+        tickangle: 90,
         angle: 90,
         gridcolor: "rgba(0,0,0,0.2)", linecolor: "rgba(0,0,0,0.2)",
       },
