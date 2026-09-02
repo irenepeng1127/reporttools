@@ -48,7 +48,7 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
 
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 2rem 1.6rem 4rem; }
+  .wrap { max-width: 1300px; margin: 0 auto; padding: 2rem 1.6rem 4rem; }
 
   .top-nav { margin-bottom: 1.2rem; }
   .top-nav a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
@@ -108,8 +108,16 @@
 
   .plot-div { width: 100%; height: 560px; }
 
-  .pattern-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
-  .pattern-item .plot-div { width: 380px; height: 420px; }
+  .pattern-row { display: flex; flex-wrap: nowrap; gap: 10px; justify-content: center; }
+  .pattern-item .plot-div { width: 380px; height: 400px; }
+
+  .pattern-legend {
+    display: flex; flex-wrap: wrap; gap: 18px; justify-content: center;
+    margin-top: 4px; padding-top: 10px;
+  }
+  .pattern-legend .item { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+  .pattern-legend .swatch { display: inline-block; width: 26px; height: 0; border-top: 3px solid; }
+  .pattern-legend .swatch.dashed { border-top-style: dashed; }
 
   .dl-btn {
     display: inline-block; margin-top: 10px; padding: 8px 14px; border-radius: 8px;
@@ -726,11 +734,14 @@ function renderPatternFigures(containerEl, fileData, freq, opts) {
     radialTicks.push(opts.ylimMin + (opts.ylimMax - opts.ylimMin) * i / (nTicks - 1));
   }
 
-  const cx = 0.5, cy = 0.46;
-  const domainX = [0.06, 0.94], domainY = [0.06, 0.86];
+  const cx = 0.5, cy = 0.475;
+  const domainX = [0.06, 0.94], domainY = [0.05, 0.90];
   const labelMap = { XY: ["Y", "X"], ZX: ["X", "Z"], ZY: ["Y", "Z"] };
 
   const divIds = [];
+  const legendItems = [];
+  const seenLegendNames = new Set();
+
   PLANES.forEach((plane, i) => {
     const divId = `${containerEl.id}-plane-${i}`;
     divIds.push(divId);
@@ -741,16 +752,20 @@ function renderPatternFigures(containerEl, fileData, freq, opts) {
     row.appendChild(item);
 
     const { traces } = buildPlaneTraces(fileData, plane, freq, { ...opts, polarKey: "polar" });
+    traces.forEach(t => {
+      if (seenLegendNames.has(t.name)) return;
+      seenLegendNames.add(t.name);
+      legendItems.push({ name: t.name, color: t.line.color, dashed: t.line.dash === "dash" });
+    });
 
     const arrowLen = (domainX[1] - domainX[0]) * 0.07;
     const [rightLabel, upLabel] = labelMap[plane];
 
     const layout = {
       paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
-      showlegend: true,
-      legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.1, font: { size: 9 } },
-      margin: { l: 30, r: 30, t: 26, b: 46 },
-      width: PATTERN_SIZE, height: PATTERN_SIZE + 40,
+      showlegend: false,
+      margin: { l: 30, r: 30, t: 26, b: 20 },
+      width: PATTERN_SIZE, height: PATTERN_SIZE + 20,
       polar: {
         domain: { x: domainX, y: domainY },
         bgcolor: "#ffffff",
@@ -790,7 +805,14 @@ function renderPatternFigures(containerEl, fileData, freq, opts) {
     Plotly.newPlot(divId, traces, layout, { responsive: true, displaylogo: false });
   });
 
-  return divIds;
+  const legendEl = document.createElement("div");
+  legendEl.className = "pattern-legend";
+  legendEl.innerHTML = legendItems.map(it =>
+    `<span class="item"><span class="swatch${it.dashed ? " dashed" : ""}" style="border-color:${it.color};"></span>${it.name}</span>`
+  ).join("");
+  containerEl.appendChild(legendEl);
+
+  return { divIds, legendItems };
 }
 
 function loadImageEl(src) {
@@ -802,29 +824,63 @@ function loadImageEl(src) {
   });
 }
 
-async function downloadStitchedPatternPng(divIds, filename) {
+function drawLegendOnCanvas(ctx, items, canvasWidth, top, scale) {
+  const fontSize = 14 * scale;
+  const swatchW = 26 * scale;
+  const swatchGap = 6 * scale;
+  const itemGap = 22 * scale;
+  ctx.font = `${fontSize}px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+  ctx.textBaseline = "middle";
+
+  const widths = items.map(it => swatchW + swatchGap + ctx.measureText(it.name).width);
+  const totalW = widths.reduce((a, b) => a + b, 0) + itemGap * Math.max(0, items.length - 1);
+
+  let x = (canvasWidth - totalW) / 2;
+  const y = top + fontSize;
+
+  items.forEach((it, i) => {
+    ctx.strokeStyle = it.color;
+    ctx.lineWidth = 3 * scale;
+    ctx.setLineDash(it.dashed ? [8 * scale, 5 * scale] : []);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + swatchW, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = "#1a1a1a";
+    ctx.fillText(it.name, x + swatchW + swatchGap, y);
+
+    x += widths[i] + itemGap;
+  });
+}
+
+async function downloadStitchedPatternPng(divIds, legendItems, filename) {
   const scale = 3;
   const shots = [];
   for (const id of divIds) {
     const el = document.getElementById(id);
     const w = Math.round(el.offsetWidth) || PATTERN_SIZE;
-    const h = Math.round(el.offsetHeight) || PATTERN_SIZE + 40;
+    const h = Math.round(el.offsetHeight) || PATTERN_SIZE + 20;
     const url = await Plotly.toImage(el, { format: "png", width: w, height: h, scale });
     shots.push({ url, w: w * scale, h: h * scale });
   }
   const totalW = shots.reduce((a, b) => a + b.w, 0);
   const maxH = Math.max(...shots.map(s => s.h));
+  const legendH = 46 * scale;
   const canvas = document.createElement("canvas");
-  canvas.width = totalW; canvas.height = maxH;
+  canvas.width = totalW; canvas.height = maxH + legendH;
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, totalW, maxH);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   let x = 0;
   for (const shot of shots) {
     const img = await loadImageEl(shot.url);
     ctx.drawImage(img, x, 0, shot.w, shot.h);
     x += shot.w;
   }
+  drawLegendOnCanvas(ctx, legendItems, totalW, maxH + 6 * scale, scale);
+
   const a = document.createElement("a");
   a.href = canvas.toDataURL("image/png");
   a.download = filename;
@@ -948,8 +1004,8 @@ document.getElementById("draw-btn").addEventListener("click", () => {
       <button class="dl-btn" id="pattern-dl">下載 Pattern PNG</button>
     `;
     resultsEl.appendChild(card);
-    const patternDivIds = renderPatternFigures(document.getElementById("pattern-chart"), currentFileData, freq, opts);
-    document.getElementById("pattern-dl").addEventListener("click", () => downloadStitchedPatternPng(patternDivIds, "2D_pattern.png"));
+    const { divIds: patternDivIds, legendItems } = renderPatternFigures(document.getElementById("pattern-chart"), currentFileData, freq, opts);
+    document.getElementById("pattern-dl").addEventListener("click", () => downloadStitchedPatternPng(patternDivIds, legendItems, "2D_pattern.png"));
 
     const statsRows = buildStatsTable(currentFileData, freq);
     if (statsRows.length) {
