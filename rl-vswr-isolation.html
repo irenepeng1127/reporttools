@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RL / VSWR / Isolation</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+  :root {
+    color-scheme: dark light;
+    --bg: #0e1117;
+    --fg: #fafafa;
+    --muted: #8b949e;
+    --card-bg: rgba(120, 120, 120, 0.07);
+    --card-border: rgba(120, 120, 120, 0.25);
+    --input-bg: rgba(120, 120, 120, 0.08);
+    --input-border: rgba(120, 120, 120, 0.35);
+    --accent: #4f8cff;
+    --accent-fg: #ffffff;
+    --error-bg: rgba(220, 60, 60, 0.12);
+    --error-fg: #ff8080;
+    --success-bg: rgba(60, 180, 100, 0.12);
+    --success-fg: #6fdc9a;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #ffffff;
+      --fg: #14171a;
+      --muted: #6b7280;
+      --card-bg: rgba(120, 120, 120, 0.05);
+      --card-border: rgba(120, 120, 120, 0.2);
+      --input-bg: rgba(120, 120, 120, 0.06);
+      --input-border: rgba(120, 120, 120, 0.3);
+      --error-bg: rgba(220, 60, 60, 0.08);
+      --error-fg: #c92a2a;
+      --success-bg: rgba(60, 180, 100, 0.08);
+      --success-fg: #2b8a3e;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.6rem 4rem;
+  }
+
+  .top-nav {
+    margin-bottom: 1.2rem;
+  }
+
+  .top-nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+  }
+
+  .top-nav a:hover { color: var(--fg); }
+
+  h1 {
+    font-size: 1.9rem;
+    font-weight: 800;
+    margin: 0 0 0.2rem;
+  }
+
+  .caption {
+    color: var(--muted);
+    font-size: 0.92rem;
+    margin-bottom: 1.6rem;
+  }
+
+  .card {
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    background: var(--card-bg);
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+
+  .card h2 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0 0 0.9rem;
+  }
+
+  .radio-row, .check-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  .radio-row label, .check-row label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.92rem;
+    cursor: pointer;
+  }
+
+  input[type="file"] {
+    width: 100%;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px dashed var(--input-border);
+    background: var(--input-bg);
+    color: var(--fg);
+  }
+
+  .file-list {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .field-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .field label {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  input[type="text"], input[type="number"] {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--input-border);
+    background: var(--input-bg);
+    color: var(--fg);
+    font-size: 0.92rem;
+  }
+
+  details {
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-top: 4px;
+  }
+
+  details summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .spec-row, .band-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .band-row { grid-template-columns: 1fr 1fr; }
+
+  .y-block { margin-top: 10px; }
+  .y-block h3 {
+    font-size: 0.88rem;
+    margin: 0 0 6px;
+  }
+
+  .hint {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+
+  .run-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+
+  .run-btn:hover { filter: brightness(1.08); }
+
+  .msg {
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    margin-top: 12px;
+  }
+
+  .msg.error { background: var(--error-bg); color: var(--error-fg); }
+  .msg.success { background: var(--success-bg); color: var(--success-fg); }
+
+  .result-card { margin-top: 22px; }
+
+  .result-card h2 {
+    font-size: 1.15rem;
+  }
+
+  .plot-div {
+    width: 100%;
+    height: 560px;
+  }
+
+  .dl-btn {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--input-border);
+    background: var(--input-bg);
+    color: var(--fg);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .dl-btn:hover { border-color: var(--accent); }
+
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-nav"><a href="./index.html">&larr; 回入口頁</a></div>
+  <h1>📡 RL / VSWR / Isolation</h1>
+  <div class="caption">所有頻率設定皆使用 MHz。上傳 CSV 後可預覽並下載圖表與 Combined CSV。（純前端運算，資料不會上傳到任何伺服器）</div>
+
+  <div class="card">
+    <h2>1. 模式</h2>
+    <div class="radio-row" id="mode-row">
+      <label><input type="radio" name="mode" value="rl" checked> Return Loss</label>
+      <label><input type="radio" name="mode" value="vswr"> VSWR</label>
+      <label><input type="radio" name="mode" value="rl_vswr"> Return Loss + VSWR</label>
+      <label><input type="radio" name="mode" value="iso"> Isolation</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2. 上傳 CSV</h2>
+    <input type="file" id="file-input" accept=".csv" multiple />
+    <div class="file-list" id="file-list"></div>
+  </div>
+
+  <div class="card">
+    <h2>3. 頻率範圍 (MHz)</h2>
+    <div class="field-grid">
+      <div class="field"><label>Start (MHz)</label><input type="number" id="fstart" value="5925" step="1"></div>
+      <div class="field"><label>End (MHz)</label><input type="number" id="fend" value="7125" step="1"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>4. SPEC 分段</h2>
+    <details>
+      <summary>自訂 SPEC（選填）</summary>
+      <div class="hint">最多 5 組，單位皆為 MHz / dB。</div>
+      <div id="spec-rows"></div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>5. 頻段</h2>
+    <div class="check-row" id="band-checks"></div>
+    <details style="margin-top:12px;">
+      <summary>手動頻段（選填）</summary>
+      <div class="hint">最多 5 組，單位皆為 MHz。</div>
+      <div id="manual-band-rows"></div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>6. Y 軸設定</h2>
+    <details>
+      <summary>自訂 Y 軸 Scale（選填）</summary>
+      <div class="y-block" id="y-rl">
+        <h3>Return Loss</h3>
+        <div class="field-grid cols-3">
+          <div class="field"><label>Ymin</label><input type="text" id="rl-ymin"></div>
+          <div class="field"><label>Ymax</label><input type="text" id="rl-ymax"></div>
+          <div class="field"><label>Step</label><input type="text" id="rl-ystep" value="5"></div>
+        </div>
+      </div>
+      <div class="y-block" id="y-vswr">
+        <h3>VSWR</h3>
+        <div class="field-grid cols-3">
+          <div class="field"><label>Ymin</label><input type="text" id="vswr-ymin" value="1"></div>
+          <div class="field"><label>Ymax</label><input type="text" id="vswr-ymax"></div>
+          <div class="field"><label>Step</label><input type="text" id="vswr-ystep" value="1"></div>
+        </div>
+      </div>
+      <div class="y-block" id="y-iso">
+        <h3>Isolation</h3>
+        <div class="field-grid cols-3">
+          <div class="field"><label>Ymin</label><input type="text" id="iso-ymin"></div>
+          <div class="field"><label>Ymax</label><input type="text" id="iso-ymax"></div>
+          <div class="field"><label>Step</label><input type="text" id="iso-ystep" value="5"></div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>7. 進階設定</h2>
+    <details>
+      <summary>展開進階設定</summary>
+      <div style="margin-top:10px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;">
+          <input type="checkbox" id="legend-side"> 圖例放右側（預設在下方）
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;margin-top:8px;">
+          <input type="checkbox" id="clean-non-band"> 清除非頻段範圍（未落在所選 Band / Manual Band 的資料會變成空值）
+        </label>
+      </div>
+    </details>
+  </div>
+
+  <button class="run-btn" id="run-btn">執行預覽</button>
+  <div id="msg-box"></div>
+
+  <div id="results"></div>
+</div>
+
+<script>
+const BAND_ITEMS = [
+  ["2.4G", 1], ["5G", 2], ["6G", 3], ["6G Japan", 4],
+  ["LB", 5], ["MB", 6], ["CB", 7],
+];
+const BAND_MAPPING = {
+  1: [2400, 2500], 2: [5150, 5850], 3: [5925, 7125], 4: [5925, 6425],
+  5: [617, 960], 6: [1710, 2700], 7: [3300, 4200],
+};
+const MAX_NAN_GAP = 10;
+const COLORS = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"];
+
+// ---------- Small DOM builders ----------
+const bandChecksEl = document.getElementById("band-checks");
+BAND_ITEMS.forEach(([name, code]) => {
+  const label = document.createElement("label");
+  label.innerHTML = `<input type="checkbox" value="${code}"> ${name}`;
+  bandChecksEl.appendChild(label);
+});
+
+function buildRows(containerId, rowClass, fields, count) {
+  const container = document.getElementById(containerId);
+  for (let i = 0; i < count; i++) {
+    const row = document.createElement("div");
+    row.className = rowClass;
+    fields.forEach(f => {
+      const field = document.createElement("div");
+      field.className = "field";
+      field.innerHTML = `<label>${f.label} ${i+1}</label><input type="text" id="${f.id}${i}">`;
+      row.appendChild(field);
+    });
+    container.appendChild(row);
+  }
+}
+buildRows("spec-rows", "spec-row", [
+  { id: "spec-start-", label: "Start (MHz)" },
+  { id: "spec-end-", label: "End (MHz)" },
+  { id: "spec-val-", label: "dB" },
+], 5);
+buildRows("manual-band-rows", "band-row", [
+  { id: "manual-start-", label: "Start (MHz)" },
+  { id: "manual-end-", label: "End (MHz)" },
+], 5);
+
+// ---------- File parsing ----------
+function stripExtLabel(name) {
+  const base = String(name).split(/[\\/]/).pop();
+  const idx = base.lastIndexOf(".");
+  return idx > 0 ? base.slice(0, idx) : base;
+}
+
+function readFileText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => {
+      const buf = reader.result;
+      let text = new TextDecoder("utf-8", { fatal: false }).decode(buf);
+      if (text.includes("�")) {
+        try { text = new TextDecoder("iso-8859-1").decode(buf); } catch (e) {}
+      }
+      resolve(text);
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = "", inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; } else inQuotes = false;
+      } else cur += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ",") { result.push(cur); cur = ""; }
+      else cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+function parseCSVFromLine0(text) {
+  const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
+  const table = lines.map(parseCSVLine);
+  const headers = table[0].map(h => h.trim());
+  return { headers, rows: table.slice(1) };
+}
+
+function parseCSVSkipToFreqHeader(text) {
+  const lines = text.split(/\r\n|\n|\r/);
+  let headerIdx = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].toLowerCase().includes("freq") && lines[i].includes(",")) {
+      headerIdx = i;
+      break;
+    }
+  }
+  const dataLines = lines.slice(headerIdx).filter(l => l.trim().length > 0);
+  const table = dataLines.map(parseCSVLine);
+  const headers = table[0].map(h => h.trim());
+  return { headers, rows: table.slice(1) };
+}
+
+function median(arr) {
+  const s = arr.filter(v => Number.isFinite(v)).slice().sort((a, b) => a - b);
+  if (!s.length) return NaN;
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+function convertFreqToMHz(values) {
+  const med = median(values);
+  if (!Number.isFinite(med)) return values.slice();
+  if (med > 1e6) return values.map(v => v / 1e6);
+  if (med > 1e3) return values.map(v => v);
+  return values.map(v => v * 1000);
+}
+
+function isCombinedFormat(headers) {
+  return headers.length >= 2 && headers[0].toLowerCase().includes("freq");
+}
+
+function parseCombinedFile(text, fileName) {
+  const { headers, rows } = parseCSVFromLine0(text);
+  const freqRaw = rows.map(r => parseFloat(r[0]));
+  const freqMHz = convertFreqToMHz(freqRaw);
+  const columns = headers.slice(1).map(stripExtLabel);
+  const items = rows.map((r, i) => ({ freq: freqMHz[i], values: r.slice(1).map(v => parseFloat(v)) }))
+    .filter(it => Number.isFinite(it.freq))
+    .sort((a, b) => a.freq - b.freq);
+  const freq = items.map(it => it.freq);
+  const table = {};
+  columns.forEach((c, ci) => { table[c] = items.map(it => it.values[ci]); });
+  return { freq, columns, table };
+}
+
+function parseIsolationSpecial(headers, rows, fstart, fend, fileName) {
+  if (!(headers.length >= 4 && headers[0] === "Freq(Hz)" && headers[3] === "S21 Log Mag(dB)")) return null;
+  const items = rows.map(r => ({
+    freq: parseFloat(r[0]) / 1e6,
+    value: parseFloat(r[3]),
+  })).filter(it => Number.isFinite(it.freq) && Number.isFinite(it.value) && it.freq >= fstart && it.freq <= fend)
+    .sort((a, b) => a.freq - b.freq);
+  return { label: stripExtLabel(fileName), freq: items.map(it => it.freq), value: items.map(it => it.value) };
+}
+
+function parseGenericSeries(headers, rows, fstart, fend, fileName) {
+  const freqIdx = headers.findIndex(h => h.toLowerCase().includes("freq"));
+  if (freqIdx === -1) throw new Error(`${fileName}：找不到 Frequency 欄位`);
+  const freqRaw = rows.map(r => parseFloat(r[freqIdx]));
+  const freqMHz = convertFreqToMHz(freqRaw);
+  const dataIdx = headers.map((_, i) => i).filter(i => i !== freqIdx)[0];
+  if (dataIdx === undefined) throw new Error(`${fileName}：沒有資料欄位`);
+
+  let items = rows.map((r, i) => ({ freq: freqMHz[i], value: parseFloat(r[dataIdx]) }))
+    .filter(it => Number.isFinite(it.freq))
+    .sort((a, b) => a.freq - b.freq)
+    .filter(it => it.freq >= fstart && it.freq <= fend);
+
+  const seen = new Set();
+  items = items.filter(it => {
+    if (seen.has(it.freq)) return false;
+    seen.add(it.freq);
+    return true;
+  });
+
+  return { label: stripExtLabel(fileName), freq: items.map(it => it.freq), value: items.map(it => it.value) };
+}
+
+async function loadCsvFiles(files, fstart, fend, isIsolation) {
+  const seriesList = [];
+  for (const file of files) {
+    const text = await readFileText(file);
+    if (isIsolation) {
+      const { headers, rows } = parseCSVSkipToFreqHeader(text);
+      const special = parseIsolationSpecial(headers, rows, fstart, fend, file.name);
+      if (special) { seriesList.push(special); continue; }
+      seriesList.push(parseGenericSeries(headers, rows, fstart, fend, file.name));
+      continue;
+    }
+    const { headers, rows } = parseCSVSkipToFreqHeader(text);
+    seriesList.push(parseGenericSeries(headers, rows, fstart, fend, file.name));
+  }
+  if (!seriesList.length) throw new Error("沒有讀到有效資料。請確認 CSV 格式與頻率範圍。");
+
+  const freqSet = new Map();
+  seriesList.forEach(s => s.freq.forEach(f => freqSet.set(f, true)));
+  const freq = Array.from(freqSet.keys()).sort((a, b) => a - b);
+  const columns = seriesList.map(s => s.label);
+  const table = {};
+  seriesList.forEach(s => {
+    const m = new Map();
+    s.freq.forEach((f, i) => { if (!m.has(f)) m.set(f, s.value[i]); });
+    table[s.label] = freq.map(f => (m.has(f) ? m.get(f) : NaN));
+  });
+  return { freq, columns, table };
+}
+
+// ---------- Data helpers ----------
+function sliceByFreqRange(combined, fstart, fend) {
+  const idx = combined.freq.map((f, i) => i).filter(i => combined.freq[i] >= fstart && combined.freq[i] <= fend);
+  const freq = idx.map(i => combined.freq[i]);
+  const table = {};
+  combined.columns.forEach(c => { table[c] = idx.map(i => combined.table[c][i]); });
+  return { freq, columns: combined.columns, table };
+}
+
+function resolveBandRanges(selectedCodes, manualRanges) {
+  const ranges = selectedCodes.map(c => BAND_MAPPING[c]).filter(Boolean);
+  manualRanges.forEach(([a, b]) => {
+    if (a == null || b == null) return;
+    ranges.push([Math.min(a, b), Math.max(a, b)]);
+  });
+  return ranges;
+}
+
+function cleanRowsOutsideBands(data, bandRanges) {
+  if (!bandRanges.length) return { freq: data.freq.slice(), columns: data.columns, table: JSON.parse(JSON.stringify(data.table)) };
+  const mask = data.freq.map(f => bandRanges.some(([s, e]) => f >= s && f <= e));
+  const table = {};
+  data.columns.forEach(c => {
+    table[c] = data.table[c].map((v, i) => (mask[i] ? v : NaN));
+  });
+  return { freq: data.freq.slice(), columns: data.columns, table };
+}
+
+function calculateVswr(data) {
+  const table = {};
+  data.columns.forEach(c => {
+    table[c] = data.table[c].map(v => {
+      const mag = Math.pow(10, v / 20);
+      return (1 + mag) / (1 - mag);
+    });
+  });
+  return { freq: data.freq.slice(), columns: data.columns, table };
+}
+
+function parseOptionalFloat(v) {
+  if (v == null) return null;
+  const t = String(v).trim();
+  if (!t) return null;
+  const f = parseFloat(t);
+  return Number.isFinite(f) ? f : null;
+}
+
+// ---------- Plotting ----------
+function buildBlocks(yArray) {
+  const finiteIdx = [];
+  yArray.forEach((v, i) => { if (Number.isFinite(v)) finiteIdx.push(i); });
+  if (finiteIdx.length < 2) return [];
+  const blocks = [];
+  let start = 0;
+  for (let k = 1; k < finiteIdx.length; k++) {
+    if (finiteIdx[k] - finiteIdx[k - 1] > MAX_NAN_GAP + 1) {
+      blocks.push(finiteIdx.slice(start, k));
+      start = k;
+    }
+  }
+  blocks.push(finiteIdx.slice(start));
+  return blocks.filter(b => b.length >= 2);
+}
+
+function renderChart(divId, data, title, yLabel, specs, bandRanges, xlim, yOpts, legendSide) {
+  const traces = [];
+  data.columns.forEach((col, ci) => {
+    const color = COLORS[ci % COLORS.length];
+    const y = data.table[col];
+    const blocks = buildBlocks(y);
+    blocks.forEach((b, bi) => {
+      traces.push({
+        x: b.map(i => data.freq[i]),
+        y: b.map(i => y[i]),
+        type: "scatter",
+        mode: "lines",
+        line: { width: 1.8, color },
+        name: col,
+        legendgroup: col,
+        showlegend: bi === 0,
+      });
+    });
+  });
+
+  const shapes = [];
+  bandRanges.forEach(([s, e], i) => {
+    shapes.push({
+      type: "rect", xref: "x", yref: "paper",
+      x0: s, x1: e, y0: 0, y1: 1,
+      fillcolor: COLORS[i % COLORS.length], opacity: 0.2, line: { width: 0 }, layer: "below",
+    });
+  });
+  specs.forEach(([s, e, v]) => {
+    shapes.push({
+      type: "line", xref: "x", yref: "y",
+      x0: s, x1: e, y0: v, y1: v,
+      line: { color: "red", dash: "dash", width: 2 },
+    });
+  });
+
+  const xmin = Math.ceil(xlim[0] / 100) * 100;
+  const layout = {
+    title: { text: title, font: { size: 20 } },
+    xaxis: {
+      title: "Frequency (MHz)",
+      range: xlim,
+      dtick: 100, tick0: xmin,
+      tickangle: -90,
+      gridcolor: "rgba(128,128,128,0.3)",
+    },
+    yaxis: {
+      title: yLabel,
+      gridcolor: "rgba(128,128,128,0.3)",
+    },
+    shapes,
+    legend: legendSide
+      ? { orientation: "v", x: 1.02, y: 1 }
+      : { orientation: "h", x: 0.5, xanchor: "center", y: -0.28 },
+    margin: { l: 70, r: legendSide ? 160 : 30, t: 60, b: legendSide ? 80 : 120 },
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(0,0,0,0)",
+    font: { color: getComputedStyle(document.body).color },
+    autosize: true,
+  };
+  if (yOpts.ymin != null || yOpts.ymax != null) {
+    let lo = yOpts.ymin, hi = yOpts.ymax;
+    layout.yaxis.range = [lo != null ? lo : "auto", hi != null ? hi : "auto"];
+    if (lo == null || hi == null) delete layout.yaxis.range;
+    else layout.yaxis.range = [lo, hi];
+  }
+  if (yOpts.ystep) layout.yaxis.dtick = yOpts.ystep;
+
+  Plotly.newPlot(divId, traces, layout, { responsive: true, displaylogo: false });
+}
+
+function downloadPng(divId, filename) {
+  Plotly.toImage(document.getElementById(divId), { format: "png", width: 1440, height: 900 }).then(url => {
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+}
+
+function downloadCsv(data, filename) {
+  const lines = ["Freq," + data.columns.join(",")];
+  data.freq.forEach((f, i) => {
+    const row = [f.toFixed(6)];
+    data.columns.forEach(c => {
+      const v = data.table[c][i];
+      row.push(Number.isFinite(v) ? v.toFixed(6) : "");
+    });
+    lines.push(row.join(","));
+  });
+  const csv = "﻿" + lines.join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ---------- UI wiring ----------
+const fileInput = document.getElementById("file-input");
+const fileListEl = document.getElementById("file-list");
+fileInput.addEventListener("change", () => {
+  const names = Array.from(fileInput.files).map(f => f.name);
+  fileListEl.textContent = names.length ? "已選擇：" + names.join("、") : "";
+});
+
+function showMsg(text, type) {
+  const box = document.getElementById("msg-box");
+  box.innerHTML = `<div class="msg ${type}">${text}</div>`;
+}
+
+function getMode() {
+  return document.querySelector('input[name="mode"]:checked').value;
+}
+
+document.getElementById("run-btn").addEventListener("click", async () => {
+  const resultsEl = document.getElementById("results");
+  resultsEl.innerHTML = "";
+  document.getElementById("msg-box").innerHTML = "";
+
+  try {
+    const files = Array.from(fileInput.files);
+    if (!files.length) throw new Error("請先上傳 CSV。");
+
+    const fstart = parseFloat(document.getElementById("fstart").value);
+    const fend = parseFloat(document.getElementById("fend").value);
+    if (!(fstart < fend)) throw new Error("Start 必須小於 End。");
+
+    const mode = getMode();
+    const doS11 = mode === "rl" || mode === "rl_vswr";
+    const doVswr = mode === "vswr" || mode === "rl_vswr";
+    const doIso = mode === "iso";
+
+    const specs = [];
+    for (let i = 0; i < 5; i++) {
+      const s = document.getElementById("spec-start-" + i).value.trim();
+      const e = document.getElementById("spec-end-" + i).value.trim();
+      const v = document.getElementById("spec-val-" + i).value.trim();
+      if (s && e && v) specs.push([parseFloat(s), parseFloat(e), parseFloat(v)]);
+    }
+
+    const manualRanges = [];
+    for (let i = 0; i < 5; i++) {
+      const s = document.getElementById("manual-start-" + i).value.trim();
+      const e = document.getElementById("manual-end-" + i).value.trim();
+      if (s && e) manualRanges.push([parseFloat(s), parseFloat(e)]);
+    }
+
+    const selectedCodes = Array.from(document.querySelectorAll("#band-checks input:checked")).map(el => parseInt(el.value, 10));
+    const bandRanges = resolveBandRanges(selectedCodes, manualRanges);
+
+    const legendSide = document.getElementById("legend-side").checked;
+    const cleanNonBand = document.getElementById("clean-non-band").checked;
+
+    const rlYmin = parseOptionalFloat(document.getElementById("rl-ymin").value);
+    const rlYmax = parseOptionalFloat(document.getElementById("rl-ymax").value);
+    let rlYstep = parseOptionalFloat(document.getElementById("rl-ystep").value); if (rlYstep == null) rlYstep = 5;
+    const vswrYmin = parseOptionalFloat(document.getElementById("vswr-ymin").value);
+    const vswrYmax = parseOptionalFloat(document.getElementById("vswr-ymax").value);
+    let vswrYstep = parseOptionalFloat(document.getElementById("vswr-ystep").value); if (vswrYstep == null) vswrYstep = 1;
+    const isoYmin = parseOptionalFloat(document.getElementById("iso-ymin").value);
+    const isoYmax = parseOptionalFloat(document.getElementById("iso-ymax").value);
+    let isoYstep = parseOptionalFloat(document.getElementById("iso-ystep").value); if (isoYstep == null) isoYstep = 5;
+    if (rlYstep <= 0 || vswrYstep <= 0 || isoYstep <= 0) throw new Error("Y 軸 Step 必須大於 0。");
+
+    let combinedFull;
+    if (files.length === 1) {
+      const text = await readFileText(files[0]);
+      const { headers } = parseCSVFromLine0(text);
+      if (isCombinedFormat(headers)) {
+        combinedFull = parseCombinedFile(text, files[0].name);
+      } else {
+        combinedFull = await loadCsvFiles(files, fstart, fend, doIso);
+      }
+    } else {
+      combinedFull = await loadCsvFiles(files, fstart, fend, doIso);
+    }
+
+    const source = sliceByFreqRange(combinedFull, fstart, fend);
+    if (!source.freq.length) throw new Error("指定頻率範圍內沒有資料。");
+
+    let working, exportData;
+    if (cleanNonBand) {
+      working = cleanRowsOutsideBands(source, bandRanges);
+      exportData = working;
+    } else {
+      working = source;
+      exportData = combinedFull;
+    }
+
+    let segVswr = [];
+    if (doVswr) {
+      segVswr = specs.map(([s, e, v]) => {
+        const mag = Math.pow(10, v / 20);
+        if (mag >= 1) throw new Error(`SPEC ${v} dB 無法轉成有效 VSWR。Return Loss dB 應小於 0。`);
+        return [s, e, (1 + mag) / (1 - mag)];
+      });
+    }
+
+    resultsEl.innerHTML = "";
+
+    function addResultBlock(id, heading, pngName) {
+      const card = document.createElement("div");
+      card.className = "card result-card";
+      card.innerHTML = `
+        <h2>${heading}</h2>
+        <div class="plot-div" id="${id}"></div>
+        <button class="dl-btn" id="${id}-dl">下載 ${heading} PNG</button>
+      `;
+      resultsEl.appendChild(card);
+      document.getElementById(id + "-dl").addEventListener("click", () => downloadPng(id, pngName));
+    }
+
+    if (doIso) {
+      addResultBlock("chart-iso", "Isolation", "iso.png");
+      renderChart("chart-iso", working, "Isolation", "Isolation (dB)", specs, bandRanges, [fstart, fend],
+        { ymin: isoYmin, ymax: isoYmax, ystep: isoYstep }, legendSide);
+    } else {
+      if (doS11) {
+        addResultBlock("chart-rl", "Return Loss", "s11.png");
+        renderChart("chart-rl", working, "Return Loss", "Return Loss (dB)", specs, bandRanges, [fstart, fend],
+          { ymin: rlYmin, ymax: rlYmax, ystep: rlYstep }, legendSide);
+      }
+      if (doVswr) {
+        const vswrData = calculateVswr(working);
+        addResultBlock("chart-vswr", "VSWR", "vswr.png");
+        renderChart("chart-vswr", vswrData, "VSWR", "VSWR", segVswr, bandRanges, [fstart, fend],
+          { ymin: vswrYmin != null ? vswrYmin : 1, ymax: vswrYmax, ystep: vswrYstep }, legendSide);
+      }
+    }
+
+    const csvCard = document.createElement("div");
+    csvCard.className = "card result-card";
+    csvCard.innerHTML = `<h2>Combined CSV</h2><button class="dl-btn" id="dl-csv">下載 combined.csv</button>`;
+    resultsEl.appendChild(csvCard);
+    document.getElementById("dl-csv").addEventListener("click", () => downloadCsv(exportData, "combined.csv"));
+
+    showMsg("分析完成。", "success");
+  } catch (err) {
+    showMsg("執行失敗：" + err.message, "error");
+  }
+});
+</script>
+</body>
+</html>
