@@ -249,6 +249,8 @@ const BANDS = [
   ["CB(3300-5000MHz)", 3300, 5000],
 ];
 const COLORS = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"];
+const PANEL_WIDTH = 560;
+const PANEL_HEIGHT = 300;
 
 // ---------- DOM builders ----------
 const bandChecksEl = document.getElementById("band-checks");
@@ -579,8 +581,9 @@ function renderMultiPanel(containerEl, seriesList, key, segments, ylim, ytitle, 
       paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1a1a1a" },
       legend: { orientation: "h", x: 0.5, xanchor: "center", y: legendY, font: { size: 9 } },
       margin: { l: 50, r: 10, t: 30, b: marginBottom },
+      width: PANEL_WIDTH, height: PANEL_HEIGHT,
     };
-    Plotly.newPlot(divId, traces, layout, { responsive: false, displaylogo: false, staticPlot: false });
+    Plotly.newPlot(divId, traces, layout, { responsive: true, displaylogo: false });
 
     const pngName = `${filenameBase}_${s}-${e}MHz.png`;
     document.getElementById(divId + "-dl").addEventListener("click", () => downloadPng(divId, pngName));
